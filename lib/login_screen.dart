@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'signup_screen.dart';
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -105,7 +107,7 @@ void didChangeDependencies() {
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
           backgroundColor: const Color(0xFFF1F3F7),
-          foregroundColor: navy,
+          foregroundColor: Color(0xFF030620),
           side: BorderSide.none,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(28),
@@ -134,7 +136,7 @@ void didChangeDependencies() {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: navy,
+      backgroundColor: Color(0xFF030620),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -205,8 +207,11 @@ void didChangeDependencies() {
                               ),
                             ),
                             GestureDetector(
-                              onTap: () => _showMessage(
-                                'Sign up screen coming soon.',
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const SignupPage(),
+                                ),
                               ),
                               child: const Text(
                                 'Sign Up',
