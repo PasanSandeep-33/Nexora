@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'signup_screen.dart';
+import 'services/api_service.dart';
+import 'screens/events_screen.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -18,24 +20,25 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _rememberMe = false;
   bool _hidePassword = true;
+  bool _isLoading = false;
 
   static const Color navy = Color(0xFF050B25);
   static const Color blue = Color(0xFF3478FF);
   static const Color purple = Color(0xFF8052F5);
   static const Color cyan = Color(0xFF19D9ED);
 
-@override
-void didChangeDependencies() {
-  super.didChangeDependencies();
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
 
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Color(0xFF050B25),
-      statusBarIconBrightness: Brightness.light,
-      statusBarBrightness: Brightness.dark,
-    ),
-  );
-}
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF050B25),
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -45,16 +48,45 @@ void didChangeDependencies() {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _login() {
-    if (_formKey.currentState!.validate()) {
-      _showMessage(
-        'Login UI is working! Authentication is not connected yet.',
+  Future<void> _login() async {
+    if (_isLoading || !_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final result = await ApiService.login(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
       );
+
+      if (!mounted) return;
+
+      final user = result['user'];
+
+      _showMessage('Welcome ${user is Map ? (user['full_name'] ?? '') : ''}!');
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const EventsScreen()),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      _showMessage('Login failed. Please check your email and password.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -64,21 +96,11 @@ void didChangeDependencies() {
   }) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(
-        color: Color(0xFF9299A2),
-        fontSize: 13,
-      ),
-      prefixIcon: Icon(
-        icon,
-        color: Colors.grey.shade600,
-        size: 21,
-      ),
+      hintStyle: const TextStyle(color: Color(0xFF9299A2), fontSize: 13),
+      prefixIcon: Icon(icon, color: Colors.grey.shade600, size: 21),
       filled: true,
       fillColor: const Color(0xFFF5F6F8),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 18,
-        vertical: 17,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(30),
         borderSide: BorderSide.none,
@@ -89,17 +111,12 @@ void didChangeDependencies() {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(30),
-        borderSide: const BorderSide(
-          color: blue,
-          width: 1.5,
-        ),
+        borderSide: const BorderSide(color: blue, width: 1.5),
       ),
     );
   }
 
-  Widget _socialButton({
-    required VoidCallback onTap,
-  }) {
+  Widget _socialButton({required VoidCallback onTap}) {
     return SizedBox(
       width: double.infinity,
       height: 49,
@@ -123,10 +140,7 @@ void didChangeDependencies() {
               color: Color(0xFF4285F4),
             ),
             const SizedBox(width: 6),
-            const Text(
-              'Google',
-              style: TextStyle(fontSize: 14),
-            ),
+            const Text('Google', style: TextStyle(fontSize: 14)),
           ],
         ),
       ),
@@ -141,7 +155,6 @@ void didChangeDependencies() {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              
               // FULL NEXORA LOGO BACKGROUND
               Container(
                 height: 430,
@@ -159,12 +172,8 @@ void didChangeDependencies() {
                 offset: const Offset(0, -75),
                 child: Container(
                   width: double.infinity,
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 15,
-                  ),
-                  padding: const EdgeInsets.fromLTRB(
-                    22, 14, 22, 16,
-                  ),
+                  margin: const EdgeInsets.symmetric(horizontal: 15),
+                  padding: const EdgeInsets.fromLTRB(22, 14, 22, 16),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(30),
@@ -237,14 +246,12 @@ void didChangeDependencies() {
                             icon: Icons.mail_outline_rounded,
                           ),
                           validator: (value) {
-                            if (value == null ||
-                                value.trim().isEmpty) {
+                            if (value == null || value.trim().isEmpty) {
                               return 'Please enter your email';
                             }
 
-                            if (!RegExp(
-                              r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-                            ).hasMatch(value.trim())) {
+                            if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                                .hasMatch(value.trim())) {
                               return 'Enter a valid email address';
                             }
 
@@ -260,25 +267,26 @@ void didChangeDependencies() {
                           obscureText: _hidePassword,
                           textInputAction: TextInputAction.done,
                           onFieldSubmitted: (_) => _login(),
-                          decoration: _inputDecoration(
-                            hint: 'Enter your password',
-                            icon: Icons.lock_outline_rounded,
-                          ).copyWith(
-                            suffixIcon: IconButton(
-                              onPressed: () {
-                                setState(() {
-                                  _hidePassword = !_hidePassword;
-                                });
-                              },
-                              icon: Icon(
-                                _hidePassword
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
-                                color: Colors.grey,
-                                size: 20,
+                          decoration:
+                              _inputDecoration(
+                                hint: 'Enter your password',
+                                icon: Icons.lock_outline_rounded,
+                              ).copyWith(
+                                suffixIcon: IconButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      _hidePassword = !_hidePassword;
+                                    });
+                                  },
+                                  icon: Icon(
+                                    _hidePassword
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    color: Colors.grey,
+                                    size: 20,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Please enter your password';
@@ -322,10 +330,7 @@ void didChangeDependencies() {
                               ),
                               child: const Text(
                                 'Forgot Password?',
-                                style: TextStyle(
-                                  color: blue,
-                                  fontSize: 11,
-                                ),
+                                style: TextStyle(color: blue, fontSize: 11),
                               ),
                             ),
                           ],
@@ -339,35 +344,39 @@ void didChangeDependencies() {
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [
-                                  purple,
-                                  blue,
-                                  cyan,
-                                ],
+                                colors: [purple, blue, cyan],
                                 begin: Alignment.centerLeft,
                                 end: Alignment.centerRight,
                               ),
                               borderRadius: BorderRadius.circular(30),
                             ),
                             child: ElevatedButton(
-                              onPressed: _login,
+                              onPressed: _isLoading ? null : _login,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
                                 foregroundColor: Colors.white,
                                 shadowColor: Colors.transparent,
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(30),
+                                  borderRadius: BorderRadius.circular(30),
                                 ),
                               ),
-                              child: const Text(
-                                'Login',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      height: 22,
+                                      width: 22,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Login',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                             ),
                           ),
                         ),
@@ -378,9 +387,7 @@ void didChangeDependencies() {
                         Row(
                           children: [
                             const Expanded(
-                              child: Divider(
-                                color: Color(0xFFE4E8EB),
-                              ),
+                              child: Divider(color: Color(0xFFE4E8EB)),
                             ),
                             Padding(
                               padding: const EdgeInsets.symmetric(
@@ -395,9 +402,7 @@ void didChangeDependencies() {
                               ),
                             ),
                             const Expanded(
-                              child: Divider(
-                                color: Color(0xFFE4E8EB),
-                              ),
+                              child: Divider(color: Color(0xFFE4E8EB)),
                             ),
                           ],
                         ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'services/api_service.dart';
+
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
 
@@ -11,13 +13,14 @@ class SignupPage extends StatefulWidget {
 class _SignupPageState extends State<SignupPage> {
   final _formKey = GlobalKey<FormState>();
 
-  final _usernameController = TextEditingController();
+  final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
   bool _hidePassword = true;
   bool _hideConfirmPassword = true;
+  bool _isLoading = false;
 
   static const Color navy = Color(0xFF050B25);
   static const Color blue = Color(0xFF3478FF);
@@ -39,7 +42,7 @@ class _SignupPageState extends State<SignupPage> {
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _fullNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -51,11 +54,41 @@ class _SignupPageState extends State<SignupPage> {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _signUp() {
-    if (_formKey.currentState!.validate()) {
-      _showMessage(
-        'Sign up UI is working! Authentication is not connected yet.',
+  Future<void> _signUp() async {
+    if (_isLoading) return;
+
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final result = await ApiService.signup(
+        fullName: _fullNameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
       );
+
+      if (!mounted) return;
+
+      _showMessage(
+        result['message']?.toString() ?? 'Account created successfully!',
+      );
+
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+
+      _showMessage('Signup failed: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -189,20 +222,23 @@ class _SignupPageState extends State<SignupPage> {
                           ],
                         ),
                         const SizedBox(height: 16),
+
                         TextFormField(
-                          controller: _usernameController,
+                          controller: _fullNameController,
                           textInputAction: TextInputAction.next,
+                          textCapitalization: TextCapitalization.words,
                           decoration: _inputDecoration(
-                            hint: 'Enter your username',
+                            hint: 'Enter your full name',
                             icon: Icons.person_outline_rounded,
                           ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
-                              return 'Please enter your username';
+                              return 'Please enter your full name';
                             }
                             return null;
                           },
                         ),
+
                         const SizedBox(height: 14),
                         TextFormField(
                           controller: _emailController,
@@ -238,8 +274,8 @@ class _SignupPageState extends State<SignupPage> {
                             if (value == null || value.isEmpty) {
                               return 'Please create a password';
                             }
-                            if (value.length < 6) {
-                              return 'Password must be at least 6 characters';
+                            if (value.length < 8) {
+                              return 'Password must be at least 8 characters';
                             }
                             return null;
                           },
@@ -279,7 +315,7 @@ class _SignupPageState extends State<SignupPage> {
                               borderRadius: BorderRadius.circular(30),
                             ),
                             child: ElevatedButton(
-                              onPressed: _signUp,
+                              onPressed: _isLoading ? null : _signUp,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
                                 foregroundColor: Colors.white,
@@ -289,13 +325,22 @@ class _SignupPageState extends State<SignupPage> {
                                   borderRadius: BorderRadius.circular(30),
                                 ),
                               ),
-                              child: const Text(
-                                'Sign Up',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Sign Up',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                             ),
                           ),
                         ),
