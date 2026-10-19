@@ -17,13 +17,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 import os
 from dotenv import load_dotenv
+import dj_database_url
+from pathlib import Path
 
-load_dotenv(BASE_DIR / '.env')
-
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
-
+DATABASES = {
+    'default': dj_database_url.config(
+    default=os.getenv('postgresql://postgres.vrfgoeebqepprbfclnix:[H12345P/?@HAH]@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres'),
+    conn_max_age=600,
+    conn_health_checks=True,
+    )
+}
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 
@@ -31,6 +34,7 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 DEBUG = os.getenv('DJANGO_DEBUG', 'False').lower() == 'true'
 
 ALLOWED_HOSTS = [
+    'onrender.com',
     '127.0.0.1',
     'localhost',
     '10.0.2.2',
