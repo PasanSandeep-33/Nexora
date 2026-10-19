@@ -62,24 +62,24 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
             'A 24-hour university coding sprint where student teams build innovative AI and campus software solutions.',
         category: 'Technology',
         eventDate: DateTime.now().add(const Duration(days: 3, hours: 4)),
-        location: 'Innovation Hub - Hall C',
+        location: 'Innovation Center',
         capacity: 100,
         rsvpCount: 88,
         clubName: 'IEEE Computer Society',
       ),
       Event(
         eventId: 102,
-        title: 'Spring Fusion Cultural Night',
+        title: 'windaneeya Handawa',
         description:
-            'Live acoustic music, drama performances, and multi-faculty food festival under the campus amphitheatre lights.',
+            'Live acoustic music, drama performances, under the campus amphitheatre lights.',
         category: 'Cultural',
         eventDate: DateTime.now().add(const Duration(days: 6, hours: 8)),
-        location: 'Grand Amphitheatre',
+        location: 'Prof.J.W.Dayananda Somasundara Audiitorium',
         capacity: 200,
         rsvpCount: 140,
-        clubName: 'Cultural Arts Council',
+        clubName: 'Art Sub Committee',
       ),
-      Event(
+      /*Event(
         eventId: 103,
         title: 'Inter-Faculty Badminton Championship',
         description:
@@ -89,7 +89,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
         location: 'Indoor Sports Complex',
         capacity: 64,
         rsvpCount: 64, // Full capacity demo
-        clubName: 'Sports Guild',
+        clubName: 'Sports Club',
       ),
       Event(
         eventId: 104,
@@ -114,7 +114,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
         capacity: 300,
         rsvpCount: 195,
         clubName: 'Career Guidance Unit',
-      ),
+      ),*/
     ];
 
     _clubs = [
