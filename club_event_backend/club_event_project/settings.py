@@ -18,27 +18,43 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 import os
 from dotenv import load_dotenv
 import dj_database_url
-from pathlib import Path
 
-# Fetch the DATABASE_URL environment variable
+# Load .env file
+load_dotenv(BASE_DIR / '.env')
+
 DATABASE_URL = os.getenv('DATABASE_URL')
 
 if DATABASE_URL:
+    db_config = dj_database_url.parse(
+        DATABASE_URL,
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
+    # Ensure correct backend engine for psycopg v3
+    db_config['ENGINE'] = 'django.db.backends.postgresql'
+    
+    # Enforce host, port, and SSL if dj-database-url didn't extract them
+    if not db_config.get('HOST'):
+        db_config['HOST'] = 'aws-0-ap-southeast-1.pooler.supabase.com'
+    if not db_config.get('PORT'):
+        db_config['PORT'] = '6543'
+        
+    db_config.setdefault('OPTIONS', {})
+    db_config['OPTIONS']['sslmode'] = 'require'
+
     DATABASES = {
-        'default': dj_database_url.parse(
-            DATABASE_URL,
-            conn_max_age=600,
-            conn_health_checks=True,
-        )
+        'default': db_config
     }
 else:
-    # Fallback to local SQLite if DATABASE_URL is not set (prevents socket crashes)
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+
+# Fetch the DATABASE_URL environment variable
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 
