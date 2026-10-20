@@ -275,7 +275,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
         backgroundColor: navyCard,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: Colors.white.withOpacity(0.1)),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
         title: const Text('Cancel RSVP?',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -336,10 +336,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
             decoration: BoxDecoration(
               color: navy,
               borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: cyan.withOpacity(0.35), width: 1.5),
+              border: Border.all(color: cyan.withValues(alpha: 0.35), width: 1.5),
               boxShadow: [
                 BoxShadow(
-                  color: blue.withOpacity(0.25),
+                  color: blue.withValues(alpha: 0.25),
                   blurRadius: 30,
                   offset: const Offset(0, 10),
                 ),
@@ -368,9 +368,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: cyan.withOpacity(0.15),
+                                color: cyan.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: cyan.withOpacity(0.3)),
+                                border: Border.all(color: cyan.withValues(alpha: 0.3)),
                               ),
                               child: const Text(
                                 'DIGITAL ADMISSION PASS',
@@ -407,8 +407,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
                           color: isCheckedIn
-                              ? blue.withOpacity(0.2)
-                              : const Color(0xFF10B981).withOpacity(0.2),
+                              ? blue.withValues(alpha: 0.2)
+                              : const Color(0xFF10B981).withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: isCheckedIn ? blue : const Color(0xFF10B981),
@@ -434,7 +434,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.25),
+                          color: Colors.black.withValues(alpha: 0.25),
                           blurRadius: 15,
                         ),
                       ],
@@ -465,7 +465,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                     decoration: BoxDecoration(
                       color: navyCard,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.white.withOpacity(0.08)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -689,13 +689,13 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                   height: 38,
                   width: 38,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
+                  errorBuilder: (_, _, _) => Container(
                     height: 38,
                     width: 38,
                     decoration: BoxDecoration(
                       color: navyCard,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: cyan.withOpacity(0.5)),
+                      border: Border.all(color: cyan.withValues(alpha: 0.5)),
                     ),
                     child: const Icon(Icons.school, color: cyan, size: 22),
                   ),
@@ -748,7 +748,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
+                      color: Colors.black.withValues(alpha: 0.12),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -780,7 +780,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
+                      color: Colors.black.withValues(alpha: 0.12),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -848,7 +848,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
       decoration: BoxDecoration(
         color: navy,
         border: Border(
-          bottom: BorderSide(color: Colors.white.withOpacity(0.08), width: 1),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08), width: 1),
         ),
       ),
       child: TabBar(

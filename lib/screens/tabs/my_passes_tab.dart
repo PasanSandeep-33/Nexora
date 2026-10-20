@@ -49,9 +49,9 @@ class MyPassesTab extends StatelessWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: blue.withOpacity(0.2),
+                  color: blue.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: blue.withOpacity(0.4)),
+                  border: Border.all(color: blue.withValues(alpha: 0.4)),
                 ),
                 child: Text(
                   '${rsvps.length} active',
@@ -88,7 +88,7 @@ class MyPassesTab extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 16,
             offset: const Offset(0, 5),
           ),
@@ -110,7 +110,7 @@ class MyPassesTab extends StatelessWidget {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: purple.withOpacity(0.1),
+                        color: purple.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -128,7 +128,7 @@ class MyPassesTab extends StatelessWidget {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withOpacity(0.12),
+                        color: const Color(0xFF10B981).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Text(
