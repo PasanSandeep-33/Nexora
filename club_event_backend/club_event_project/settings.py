@@ -22,7 +22,7 @@ from pathlib import Path
 
 DATABASES = {
     'default': dj_database_url.config(
-    default=os.getenv('postgresql://postgres.vrfgoeebqepprbfclnix:[H12345P/?@HAH]@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres'),
+    default=os.getenv('DATABASE_URL'),
     conn_max_age=600,
     conn_health_checks=True,
     )
