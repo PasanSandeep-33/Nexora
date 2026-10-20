@@ -20,13 +20,25 @@ from dotenv import load_dotenv
 import dj_database_url
 from pathlib import Path
 
-DATABASES = {
-    'default': dj_database_url.config(
-    default=os.getenv('DATABASE_URL'),
-    conn_max_age=600,
-    conn_health_checks=True,
-    )
-}
+# Fetch the DATABASE_URL environment variable
+DATABASE_URL = os.getenv('DATABASE_URL')
+
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+else:
+    # Fallback to local SQLite if DATABASE_URL is not set (prevents socket crashes)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 
