@@ -62,9 +62,9 @@ class _PresidentDashboardState extends State<PresidentDashboard>
   // 2. Registered Participants List (Scan Removed - Only Check In / Undo)
   final List<Map<String, dynamic>> participants = [
     {
-      "name": "Alex Chen",
+      "name": "Ashen Gamage",
       "studentId": "NXR-2026-CS88",
-      "email": "alex.chen@campus.nexora.edu",
+      "email": "ashen.gmge@campus.nexora.edu",
       "eventTitle": "Nexora Annual Hackathon 2026",
       "ticket": "NEXORA-TKT-101-AC88",
       "checkedIn": true,
