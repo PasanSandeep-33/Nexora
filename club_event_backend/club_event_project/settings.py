@@ -17,41 +17,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 import os
 from dotenv import load_dotenv
-import dj_database_url
 
 # Load .env file
 load_dotenv(BASE_DIR / '.env')
-
-DATABASE_URL = os.getenv('DATABASE_URL')
-
-if DATABASE_URL:
-    db_config = dj_database_url.parse(
-        DATABASE_URL,
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
-    # Ensure correct backend engine for psycopg v3
-    db_config['ENGINE'] = 'django.db.backends.postgresql'
-    
-    # Enforce host, port, and SSL if dj-database-url didn't extract them
-    if not db_config.get('HOST'):
-        db_config['HOST'] = 'aws-0-ap-southeast-1.pooler.supabase.com'
-    if not db_config.get('PORT'):
-        db_config['PORT'] = '6543'
-        
-    db_config.setdefault('OPTIONS', {})
-    db_config['OPTIONS']['sslmode'] = 'require'
-
-    DATABASES = {
-        'default': db_config
-    }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
 
 # Fetch the DATABASE_URL environment variable
 
@@ -62,11 +30,9 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 DEBUG = os.getenv('DJANGO_DEBUG', 'False').lower() == 'true'
 
 ALLOWED_HOSTS = [
-    'onrender.com',
     '127.0.0.1',
     'localhost',
     '10.0.2.2',
-    '192.168.180.206',
 ]
 
 render_hostname = os.getenv('RENDER_EXTERNAL_HOSTNAME')
@@ -175,8 +141,9 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 STORAGES = {
     'default': {
@@ -191,8 +158,38 @@ STORAGES = {
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
+# MAILERS = {
+#     'default': {
+#         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+#     },
+# }
+
+# Email configuration
+# EMAIL_HOST = os.getenv('EMAIL_HOST', '')
+# EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+# EMAIL_USE_TLS = True
+
+# Email Configuration - Django 6.1
+
 MAILERS = {
     'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+        'BACKEND': 'django.core.mail.backends.smtp.EmailBackend',
+        'OPTIONS': {
+            'host': os.getenv('SMTP_HOST', 'localhost'),
+            'port': int(os.getenv('SMTP_PORT', '587')),
+            'username': os.getenv('SMTP_USER', ''),
+            'password': os.getenv('SMTP_PASSWORD', ''),
+            'use_tls': True,
+        },
     },
 }
+
+# Production security settings
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+    SECURE_HSTS_SECONDS = 3600
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False

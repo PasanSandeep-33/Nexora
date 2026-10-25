@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'signup_screen.dart';
 import 'services/api_service.dart';
 import 'screens/events_screen.dart';
+import 'screens/student_dashboard_screen.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -75,7 +76,7 @@ class _LoginPageState extends State<LoginPage> {
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const EventsScreen()),
+        MaterialPageRoute(builder: (context) => const StudentDashboardScreen()),
       );
     } catch (error) {
       if (!mounted) return;
@@ -239,6 +240,10 @@ class _LoginPageState extends State<LoginPage> {
                         // EMAIL FIELD
                         TextFormField(
                           controller: _emailController,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 16,
+                          ),
                           keyboardType: TextInputType.emailAddress,
                           textInputAction: TextInputAction.next,
                           decoration: _inputDecoration(
@@ -264,6 +269,10 @@ class _LoginPageState extends State<LoginPage> {
                         // PASSWORD FIELD
                         TextFormField(
                           controller: _passwordController,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 16,
+                          ),
                           obscureText: _hidePassword,
                           textInputAction: TextInputAction.done,
                           onFieldSubmitted: (_) => _login(),
