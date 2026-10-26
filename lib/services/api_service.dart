@@ -3,10 +3,12 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/event_model.dart';
+import 'auth_storage.dart';
 
 class ApiService {
   static const String baseUrl = 'http://10.0.2.2:8000';
 
+  // Public API - Get approved events
   static Future<List<Event>> getEvents() async {
     final response = await http
         .get(Uri.parse('$baseUrl/api/events/'))
@@ -21,6 +23,7 @@ class ApiService {
     }
   }
 
+  // Public API - Signup
   static Future<Map<String, dynamic>> signup({
     required String fullName,
     required String email,
@@ -47,6 +50,7 @@ class ApiService {
     }
   }
 
+  // Public API - Login
   static Future<Map<String, dynamic>> login({
     required String email,
     required String password,
@@ -55,7 +59,10 @@ class ApiService {
         .post(
           Uri.parse('$baseUrl/api/login/'),
           headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'email': email.trim(), 'password': password}),
+          body: jsonEncode({
+            'email': email.trim(),
+            'password': password,
+          }),
         )
         .timeout(const Duration(seconds: 10));
 
@@ -70,5 +77,42 @@ class ApiService {
             : 'Login failed',
       );
     }
+  }
+
+  // Protected API - Get logged-in user profile
+  static Future<Map<String, dynamic>> getProfile() async {
+    final token = await AuthStorage.getToken();
+
+    if (token == null || token.isEmpty) {
+      throw Exception('Not authenticated. Please login.');
+    }
+
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/api/profile/'),
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
+      return Map<String, dynamic>.from(
+        jsonDecode(response.body),
+      );
+    }
+
+    if (response.statusCode == 401) {
+      throw Exception('Session expired or invalid. Please login again.');
+    }
+
+    throw Exception(
+      'Failed to load profile: ${response.statusCode}',
+    );
+  }
+
+  // Logout - Delete locally stored JWT token
+  static Future<void> logout() async {
+    await AuthStorage.deleteToken();
   }
 }

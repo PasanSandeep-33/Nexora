@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:nexora/signup_screen.dart';
 import 'package:nexora/splash_screen.dart';
-import 'screens/president_dashboard.dart';
 
 
 void main() {
