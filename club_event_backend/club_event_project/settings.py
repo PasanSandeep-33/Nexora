@@ -33,6 +33,7 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost',
     '10.0.2.2',
+    'nexora-event-mgmt-api.onrender.com',
 ]
 
 render_hostname = os.getenv('RENDER_EXTERNAL_HOSTNAME')
