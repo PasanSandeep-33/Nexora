@@ -6,7 +6,7 @@ import '../models/event_model.dart';
 import 'auth_storage.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://10.0.2.2:8000';
+  static const String baseUrl = 'https://nexora-event-mgmt-api.onrender.com';
 
   // Public API - Get approved events
   static Future<List<Event>> getEvents() async {
@@ -59,10 +59,7 @@ class ApiService {
         .post(
           Uri.parse('$baseUrl/api/login/'),
           headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'email': email.trim(),
-            'password': password,
-          }),
+          body: jsonEncode({'email': email.trim(), 'password': password}),
         )
         .timeout(const Duration(seconds: 10));
 
@@ -90,25 +87,19 @@ class ApiService {
     final response = await http
         .get(
           Uri.parse('$baseUrl/api/profile/'),
-          headers: {
-            'Authorization': 'Bearer $token',
-          },
+          headers: {'Authorization': 'Bearer $token'},
         )
         .timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200) {
-      return Map<String, dynamic>.from(
-        jsonDecode(response.body),
-      );
+      return Map<String, dynamic>.from(jsonDecode(response.body));
     }
 
     if (response.statusCode == 401) {
       throw Exception('Session expired or invalid. Please login again.');
     }
 
-    throw Exception(
-      'Failed to load profile: ${response.statusCode}',
-    );
+    throw Exception('Failed to load profile: ${response.statusCode}');
   }
 
   // Logout - Delete locally stored JWT token
