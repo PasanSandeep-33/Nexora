@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'signup_screen.dart';
 import 'services/api_service.dart';
 import 'screens/student_dashboard_screen.dart';
+import 'services/auth_storage.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -67,7 +68,17 @@ class _LoginPageState extends State<LoginPage> {
         password: _passwordController.text,
       );
 
+      final token = result['access_token'];
+
+      if (token is! String || token.isEmpty) {
+        throw Exception('JWT access token missing');
+      }
+
+      // Save JWT token securely
+      await AuthStorage.saveToken(token);
+
       if (!mounted) return;
+
 
       final user = result['user'];
 

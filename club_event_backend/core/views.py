@@ -1,6 +1,6 @@
 
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
@@ -9,8 +9,10 @@ from .serializers import EventSerializer, SignupSerializer
 from django.contrib.auth.hashers import check_password
 from .models import Users
 from .serializers import LoginSerializer
+from .authentication import create_access_token
 
 @api_view(['GET'])
+@permission_classes([AllowAny])
 def event_list(request):
     events = Events.objects.filter(
         approval_status='approved'
@@ -64,14 +66,18 @@ def login(request):
     if user is None or not check_password(
         password, user.password_hash
     ):
+
         return Response(
             {'message': 'Invalid email or password'},
             status=status.HTTP_401_UNAUTHORIZED
         )
-
+    access_token = create_access_token(user)
     return Response(
         {
             'message': 'Login credentials verified successfully',
+            'access_token': access_token,
+            'token_type': 'Bearer',
+            'expires_in': 1800,
             'user': {
                 'user_id': user.user_id,
                 'full_name': user.full_name,
@@ -81,3 +87,14 @@ def login(request):
         },
         status=status.HTTP_200_OK
     )
+# Protected User Profile API
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def profile(request):
+    user = request.user
+
+    return Response({
+        'user_id': user.user_id,
+        'email': user.email,
+        'role': user.role,
+    })

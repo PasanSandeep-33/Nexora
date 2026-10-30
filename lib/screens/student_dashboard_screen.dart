@@ -10,6 +10,7 @@ import 'tabs/explore_tab.dart';
 import 'tabs/my_passes_tab.dart';
 import 'tabs/clubs_tab.dart';
 import 'tabs/profile_tab.dart';
+import '../services/api_service.dart';
 
 class StudentDashboardScreen extends StatefulWidget {
   final Map<String, dynamic>? user;
@@ -26,6 +27,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
   String _selectedCategory = 'All';
   final TextEditingController _searchController = TextEditingController();
   bool _isSearchVisible = false;
+  Map<String, dynamic>? _profile;
 
   // Exact Brand Color Palette
   static const Color navy = Color(0xFF050B25);
@@ -49,10 +51,34 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
   late List<RsvpItem> _myRsvps;
   final Set<int> _checkedInRsvpIds = {};
 
+  Future<void> _loadProfile() async {
+    try {
+      final profile = await ApiService.getProfile();
+
+      if (!mounted) return;
+
+      setState(() {
+        _profile = profile;
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      _showFloatingSnackBar(
+        message: 'Unable to load profile. Please login again.',
+        backgroundColor: Colors.redAccent,
+        textColor: Colors.white,
+        icon: Icons.error_outline,
+      );
+    }
+  }
+
+
   @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+void initState() {
+  super.initState();
+  _tabController = TabController(length: 4, vsync: this);
+
+  _loadProfile();
 
     _events = [
       Event(
@@ -155,8 +181,17 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
     super.dispose();
   }
 
-  String get _userName => widget.user?['name'] ?? widget.user?['email'] ?? 'Amal De Silva';
-  String get _userEmail => widget.user?['email'] ?? 'amal.silva@campus.nexora.edu';
+String get _userName =>
+    widget.user?['full_name']?.toString() ??
+    _profile?['full_name']?.toString() ??
+    _profile?['email']?.toString() ??
+    'Student';
+
+String get _userEmail =>
+    _profile?['email']?.toString() ??
+    widget.user?['email']?.toString() ??
+    '';
+
 
   List<Event> get _filteredEvents {
     return _events.where((event) {
@@ -651,12 +686,31 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                     onNavigateToTab: (index) {
                       _tabController.animateTo(index);
                     },
-                    onLogout: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (context) => const LoginPage()),
-                      );
+                    onLogout: () async {
+                      try {
+                        await ApiService.logout();
+
+                        if (!mounted) return;
+
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const LoginPage(),
+                          ),
+                          (route) => false,
+                        );
+                      } catch (error) {
+                        if (!mounted) return;
+
+                        _showFloatingSnackBar(
+                          message: 'Logout failed. Please try again.',
+                          backgroundColor: Colors.redAccent,
+                          textColor: Colors.white,
+                          icon: Icons.error_outline,
+                        );
+                      }
                     },
+
                     onShowSnackBar: ({required String message}) {
                       _showFloatingSnackBar(
                         message: message,
