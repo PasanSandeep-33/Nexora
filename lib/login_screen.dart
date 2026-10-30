@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 
 import 'signup_screen.dart';
 import 'services/api_service.dart';
-import 'screens/events_screen.dart';
 import 'screens/student_dashboard_screen.dart';
 
 class LoginPage extends StatefulWidget {
