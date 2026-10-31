@@ -1255,16 +1255,29 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                     onNavigateToTab: (index) {
                       _tabController.animateTo(index);
                     },
-                    onLogout: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const LoginPage(),
-                        ),
-                        MaterialPageRoute(
-                          builder: (context) => const LoginPage(),
-                        ),
-                      );
+                    onLogout: () async {
+                      try {
+                        await ApiService.logout();
+
+                        if (!context.mounted) return;
+
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const LoginPage(),
+                          ),
+                          (route) => false,
+                        );
+                      } catch (error) {
+                        if (!mounted) return;
+
+                        _showFloatingSnackBar(
+                          message: 'Logout failed. Please try again.',
+                          backgroundColor: Colors.redAccent,
+                          textColor: Colors.white,
+                          icon: Icons.error_outline,
+                        );
+                      }
                     },
                     onShowSnackBar: ({required String message}) {
                       _showFloatingSnackBar(
