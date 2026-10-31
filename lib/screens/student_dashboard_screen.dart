@@ -58,8 +58,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
       Event(
         eventId: 101,
         title: 'Nexora Annual Hackathon 2026',
-        description:
-            'A 24-hour university coding sprint where student teams build innovative AI and campus software solutions.',
+        description: 'A 24-hour university coding sprint where student teams build innovative AI and campus software solutions.',
         category: 'Technology',
         eventDate: DateTime.now().add(const Duration(days: 3, hours: 4)),
         location: 'Innovation Center',
@@ -70,8 +69,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
       Event(
         eventId: 102,
         title: 'windaneeya Handawa',
-        description:
-            'Live acoustic music, drama performances, under the campus amphitheatre lights.',
+        description: 'Live acoustic music, drama performances, under the campus amphitheatre lights.',
         category: 'Cultural',
         eventDate: DateTime.now().add(const Duration(days: 6, hours: 8)),
         location: 'Prof.J.W.Dayananda Somasundara Audiitorium',
@@ -123,12 +121,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
         clubName: 'IEEE Computer Society',
         category: 'Technology',
         presidentName: 'Kavindu Perera',
-        description:
-            'Premier student branch for software engineers, competitive coders, and system hackers.',
+        description: 'Premier student branch for software engineers, competitive coders, and system hackers.',
         memberCount: 342,
         isJoined: true,
       ),
-      
     ];
 
     _myRsvps = [
@@ -144,7 +140,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
           isCheckedIn: false,
         ),
       ),
-     
     ];
   }
 
@@ -155,15 +150,19 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
     super.dispose();
   }
 
-  String get _userName => widget.user?['name'] ?? widget.user?['email'] ?? 'Amal De Silva';
-  String get _userEmail => widget.user?['email'] ?? 'amal.silva@campus.nexora.edu';
+  String get _userName =>
+      widget.user?['name'] ?? widget.user?['email'] ?? 'Amal De Silva';
+  String get _userEmail =>
+      widget.user?['email'] ?? 'amal.silva@campus.nexora.edu';
 
   List<Event> get _filteredEvents {
     return _events.where((event) {
-      final matchesCat = _selectedCategory == 'All' ||
+      final matchesCat =
+          _selectedCategory == 'All' ||
           event.category.toLowerCase() == _selectedCategory.toLowerCase();
       final query = _searchController.text.trim().toLowerCase();
-      final matchesSearch = query.isEmpty ||
+      final matchesSearch =
+          query.isEmpty ||
           event.title.toLowerCase().contains(query) ||
           event.description.toLowerCase().contains(query) ||
           event.location.toLowerCase().contains(query) ||
@@ -173,11 +172,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
   }
 
   Map<String, dynamic> get _stats => {
-        'total_rsvps': _myRsvps.length,
-        'upcoming_events': _myRsvps.length,
-        'attended_events': _checkedInRsvpIds.length + 1,
-        'clubs_joined': _clubs.where((c) => c.isJoined).length,
-      };
+    'total_rsvps': _myRsvps.length,
+    'upcoming_events': _myRsvps.length,
+    'attended_events': _checkedInRsvpIds.length + 1,
+    'clubs_joined': _clubs.where((c) => c.isJoined).length,
+  };
 
   bool _isRsvpd(int eventId) {
     return _myRsvps.any((r) => r.event.eventId == eventId);
@@ -222,7 +221,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
   // Frontend RSVP Toggle
   void _handleRsvp(Event event) {
     if (_isRsvpd(event.eventId)) {
-      final r = _myRsvps.firstWhere((item) => item.event.eventId == event.eventId);
+      final r = _myRsvps.firstWhere(
+        (item) => item.event.eventId == event.eventId,
+      );
       _showQrTicketModal(r);
       return;
     }
@@ -277,8 +278,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
           borderRadius: BorderRadius.circular(20),
           side: BorderSide(color: Colors.white.withOpacity(0.1)),
         ),
-        title: const Text('Cancel RSVP?',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Cancel RSVP?',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         content: Text(
           'Release your admission ticket for ${rsvp.event.title}?',
           style: const TextStyle(color: Colors.white70, fontSize: 13),
@@ -286,14 +289,19 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Keep Pass', style: TextStyle(color: Colors.white60)),
+            child: const Text(
+              'Keep Pass',
+              style: TextStyle(color: Colors.white60),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             child: const Text('Cancel RSVP'),
           ),
@@ -324,8 +332,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         final ticket = rsvp.ticket;
-        final qrString = ticket?.qrCode ?? 'NEXORA-PASS-${rsvp.event.eventId}-AC88';
-        final isCheckedIn = (ticket?.isCheckedIn ?? false) || _checkedInRsvpIds.contains(rsvp.rsvpId);
+        final qrString =
+            ticket?.qrCode ?? 'NEXORA-PASS-${rsvp.event.eventId}-AC88';
+        final isCheckedIn =
+            (ticket?.isCheckedIn ?? false) ||
+            _checkedInRsvpIds.contains(rsvp.rsvpId);
         final screenWidth = MediaQuery.of(ctx).size.width;
         final qrSize = (screenWidth * 0.44).clamp(140.0, 190.0);
 
@@ -366,11 +377,16 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
                                 color: cyan.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: cyan.withOpacity(0.3)),
+                                border: Border.all(
+                                  color: cyan.withOpacity(0.3),
+                                ),
                               ),
                               child: const Text(
                                 'DIGITAL ADMISSION PASS',
@@ -396,7 +412,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                             const SizedBox(height: 2),
                             Text(
                               'Organized by: ${rsvp.event.clubName}',
-                              style: const TextStyle(color: Colors.white60, fontSize: 12),
+                              style: const TextStyle(
+                                color: Colors.white60,
+                                fontSize: 12,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
@@ -404,7 +423,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
                           color: isCheckedIn
                               ? blue.withOpacity(0.2)
@@ -494,7 +516,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                                 _checkedInRsvpIds.add(rsvp.rsvpId);
                               });
                               _showFloatingSnackBar(
-                                message: 'Entrance scan verified! Pass checked in.',
+                                message:
+                                    'Entrance scan verified! Pass checked in.',
                                 backgroundColor: const Color(0xFF10B981),
                                 textColor: Colors.white,
                                 icon: Icons.verified_rounded,
@@ -503,13 +526,20 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                             icon: const Icon(Icons.qr_code_scanner, size: 18),
                             label: const FittedBox(
                               fit: BoxFit.scaleDown,
-                              child: Text('Simulate Scan',
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                              child: Text(
+                                'Simulate Scan',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: cyan,
                               side: const BorderSide(color: cyan, width: 1.5),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
                             ),
                           ),
                         ),
@@ -531,13 +561,20 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                             icon: const Icon(Icons.copy_rounded, size: 18),
                             label: const FittedBox(
                               fit: BoxFit.scaleDown,
-                              child: Text('Copy Pass ID',
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                              child: Text(
+                                'Copy Pass ID',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: blue,
                               foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
                             ),
                           ),
                         ),
@@ -634,10 +671,13 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                         message: club.isJoined
                             ? 'Joined ${club.clubName}!'
                             : 'Left ${club.clubName}.',
-                        backgroundColor:
-                            club.isJoined ? const Color(0xFF10B981) : Colors.white,
+                        backgroundColor: club.isJoined
+                            ? const Color(0xFF10B981)
+                            : Colors.white,
                         textColor: club.isJoined ? Colors.white : navy,
-                        icon: club.isJoined ? Icons.check_circle : Icons.info_outline,
+                        icon: club.isJoined
+                            ? Icons.check_circle
+                            : Icons.info_outline,
                       );
                     },
                   ),
@@ -654,7 +694,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                     onLogout: () {
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(builder: (context) => const LoginPage()),
+                        MaterialPageRoute(
+                          builder: (context) => const LoginPage(),
+                        ),
                       );
                     },
                     onShowSnackBar: ({required String message}) {
@@ -788,7 +830,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                 ),
                 child: IconButton(
                   padding: EdgeInsets.zero,
-                  icon: const Icon(Icons.notifications_none_rounded, color: navy, size: 19),
+                  icon: const Icon(
+                    Icons.notifications_none_rounded,
+                    color: navy,
+                    size: 19,
+                  ),
                   onPressed: () {
                     _showFloatingSnackBar(
                       message: 'No new campus announcements right now.',
@@ -806,14 +852,25 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
             TextField(
               controller: _searchController,
               onChanged: (_) => setState(() {}),
-              style: const TextStyle(color: navy, fontSize: 13, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                color: navy,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
               decoration: InputDecoration(
                 hintText: 'Search campus events, clubs, venues...',
-                hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                hintStyle: const TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 12,
+                ),
                 prefixIcon: const Icon(Icons.search, color: blue, size: 18),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear, color: Color(0xFF64748B), size: 16),
+                        icon: const Icon(
+                          Icons.clear,
+                          color: Color(0xFF64748B),
+                          size: 16,
+                        ),
                         onPressed: () {
                           _searchController.clear();
                           setState(() {});
@@ -822,7 +879,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                     : null,
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -868,9 +928,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                 SizedBox(height: 2),
                 FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text('Explore',
-                      maxLines: 1,
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    'Explore',
+                    maxLines: 1,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
             ),
@@ -883,17 +945,25 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                   isLabelVisible: _myRsvps.isNotEmpty,
                   label: Text(
                     '${_myRsvps.length}',
-                    style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   backgroundColor: blue,
-                  child: const Icon(Icons.confirmation_number_rounded, size: 22),
+                  child: const Icon(
+                    Icons.confirmation_number_rounded,
+                    size: 22,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 const FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text('My Passes',
-                      maxLines: 1,
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    'My Passes',
+                    maxLines: 1,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
             ),
@@ -906,9 +976,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                 SizedBox(height: 2),
                 FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text('Clubs',
-                      maxLines: 1,
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    'Clubs',
+                    maxLines: 1,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
             ),
@@ -921,9 +993,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                 SizedBox(height: 2),
                 FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text('Profile',
-                      maxLines: 1,
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    'Profile',
+                    maxLines: 1,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
             ),
@@ -955,12 +1029,20 @@ class _QrCodePainter extends CustomPainter {
       final whitePaint = Paint()..color = Colors.white;
       canvas.drawRect(
         Rect.fromLTWH(
-            (x + 1) * cellSize, (y + 1) * cellSize, 5 * cellSize, 5 * cellSize),
+          (x + 1) * cellSize,
+          (y + 1) * cellSize,
+          5 * cellSize,
+          5 * cellSize,
+        ),
         whitePaint,
       );
       canvas.drawRect(
         Rect.fromLTWH(
-            (x + 2) * cellSize, (y + 2) * cellSize, 3 * cellSize, 3 * cellSize),
+          (x + 2) * cellSize,
+          (y + 2) * cellSize,
+          3 * cellSize,
+          3 * cellSize,
+        ),
         paint,
       );
     }
