@@ -1,13 +1,14 @@
 import 'dart:io';
+
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 
 void main() => runApp(
-      const MaterialApp(
-        home: PresidentDashboard(),
-        debugShowCheckedModeBanner: false,
-      ),
-    );
+  const MaterialApp(
+    home: PresidentDashboard(),
+    debugShowCheckedModeBanner: false,
+  ),
+);
 
 class PresidentDashboard extends StatefulWidget {
   const PresidentDashboard({super.key});
@@ -43,8 +44,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
       "category": "TECHNOLOGY",
       "title": "Nexora Annual Hackathon 2026",
       "organizer": "Organized by: IEEE Computer Society",
-      "description":
-          "A 24-hour university coding sprint where student teams build innovative AI and campus software solutions.",
+      "description": "A 24-hour university coding sprint where student teams build innovative AI and campus software solutions.",
       "date": "22/10/2026 • 23:54",
       "venue": "Innovation Center",
       "status": "APPROVED",
@@ -54,8 +54,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
       "category": "CULTURAL",
       "title": "Windaneeya Handawa",
       "organizer": "Organized by: IEEE Computer Society",
-      "description":
-          "Live acoustic music, drama performances, under the campus amphitheatre lights.",
+      "description": "Live acoustic music, drama performances, under the campus amphitheatre lights.",
       "date": "26/10/2026 • 18:30",
       "venue": "Prof. J.W. Dayananda Amphitheatre",
       "status": "PENDING",
@@ -183,12 +182,19 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _selectedCategory,
+                  initialValue: _selectedCategory,
                   dropdownColor: kWhiteCard,
                   style: const TextStyle(color: kBgColor),
                   items: ["TECHNOLOGY", "CULTURAL", "SPORTS", "WORKSHOP"]
-                      .map((cat) =>
-                          DropdownMenuItem(value: cat, child: Text(cat, style: const TextStyle(color: kBgColor))))
+                      .map(
+                        (cat) => DropdownMenuItem(
+                          value: cat,
+                          child: Text(
+                            cat,
+                            style: const TextStyle(color: kBgColor),
+                          ),
+                        ),
+                      )
                       .toList(),
                   onChanged: (val) {
                     setState(() {
@@ -280,38 +286,52 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                 TextField(
                   controller: nameCtrl,
                   style: const TextStyle(color: kBgColor),
-                  decoration: const InputDecoration(labelText: "Student Name", labelStyle: TextStyle(color: kTextGrey)),
+                  decoration: const InputDecoration(
+                    labelText: "Student Name",
+                    labelStyle: TextStyle(color: kTextGrey),
+                  ),
                 ),
                 TextField(
                   controller: idCtrl,
                   style: const TextStyle(color: kBgColor),
-                  decoration: const InputDecoration(labelText: "Student ID", labelStyle: TextStyle(color: kTextGrey)),
+                  decoration: const InputDecoration(
+                    labelText: "Student ID",
+                    labelStyle: TextStyle(color: kTextGrey),
+                  ),
                 ),
                 TextField(
                   controller: emailCtrl,
                   style: const TextStyle(color: kBgColor),
-                  decoration: const InputDecoration(labelText: "Email", labelStyle: TextStyle(color: kTextGrey)),
+                  decoration: const InputDecoration(
+                    labelText: "Email",
+                    labelStyle: TextStyle(color: kTextGrey),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: selectedEvent,
+                  initialValue: selectedEvent,
                   isExpanded: true,
                   dropdownColor: kWhiteCard,
                   style: const TextStyle(color: kBgColor),
                   items: clubEvents
-                      .map((e) => DropdownMenuItem<String>(
-                            value: e["title"],
-                            child: Text(
-                              e["title"],
-                              style: const TextStyle(color: kBgColor),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ))
+                      .map(
+                        (e) => DropdownMenuItem<String>(
+                          value: e["title"],
+                          child: Text(
+                            e["title"],
+                            style: const TextStyle(color: kBgColor),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
                       .toList(),
                   onChanged: (val) {
                     if (val != null) selectedEvent = val;
                   },
-                  decoration: const InputDecoration(labelText: "Event", labelStyle: TextStyle(color: kTextGrey)),
+                  decoration: const InputDecoration(
+                    labelText: "Event",
+                    labelStyle: TextStyle(color: kTextGrey),
+                  ),
                 ),
               ],
             ),
@@ -331,8 +351,9 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                   setState(() {
                     participants.insert(0, {
                       "name": nameCtrl.text,
-                      "studentId":
-                          idCtrl.text.isEmpty ? "NXR-2026-CS99" : idCtrl.text,
+                      "studentId": idCtrl.text.isEmpty
+                          ? "NXR-2026-CS99"
+                          : idCtrl.text,
                       "email": emailCtrl.text.isEmpty
                           ? "student@campus.nexora.edu"
                           : emailCtrl.text,
@@ -355,14 +376,18 @@ class _PresidentDashboardState extends State<PresidentDashboard>
 
   // ==================== EDIT PRESIDENT PROFILE DIALOG ====================
   void _showEditProfileDialog() {
-    final TextEditingController nameCtrl =
-        TextEditingController(text: presidentName);
-    final TextEditingController emailCtrl =
-        TextEditingController(text: presidentEmail);
-    final TextEditingController clubCtrl =
-        TextEditingController(text: presidentClub);
-    final TextEditingController idCtrl =
-        TextEditingController(text: presidentId);
+    final TextEditingController nameCtrl = TextEditingController(
+      text: presidentName,
+    );
+    final TextEditingController emailCtrl = TextEditingController(
+      text: presidentEmail,
+    );
+    final TextEditingController clubCtrl = TextEditingController(
+      text: presidentClub,
+    );
+    final TextEditingController idCtrl = TextEditingController(
+      text: presidentId,
+    );
 
     showDialog(
       context: context,
@@ -590,7 +615,11 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                 "Select a photo from device storage",
                 style: TextStyle(color: kTextGrey, fontSize: 12),
               ),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: kTextGrey),
+              trailing: const Icon(
+                Icons.arrow_forward_ios,
+                size: 14,
+                color: kTextGrey,
+              ),
               onTap: () => _pickImage(ImageSource.gallery),
             ),
             const Divider(height: 1),
@@ -615,7 +644,11 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                 "Open camera and take a new picture",
                 style: TextStyle(color: kTextGrey, fontSize: 12),
               ),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: kTextGrey),
+              trailing: const Icon(
+                Icons.arrow_forward_ios,
+                size: 14,
+                color: kTextGrey,
+              ),
               onTap: () => _pickImage(ImageSource.camera),
             ),
             if (profileImage != null) ...[
@@ -627,7 +660,10 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                     color: Colors.redAccent.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  child: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.redAccent,
+                  ),
                 ),
                 title: const Text(
                   "Remove Current Photo",
@@ -713,7 +749,8 @@ class _PresidentDashboardState extends State<PresidentDashboard>
               icon: Icons.hourglass_top,
               iconColor: Colors.orange,
               title: "Approval Pending: Windaneeya Handawa",
-              subtitle: "Submitted for amphitheatre audio and lighting clearance.",
+              subtitle:
+                  "Submitted for amphitheatre audio and lighting clearance.",
               time: "Yesterday • 09:15",
               actionLabel: "Check Status",
               onAction: () {
@@ -725,7 +762,8 @@ class _PresidentDashboardState extends State<PresidentDashboard>
               icon: Icons.person_add_alt_1,
               iconColor: kBlue,
               title: "New RSVPs on Nexora Hackathon",
-              subtitle: "Alex Chen and Chaduni De Silva registered for the event.",
+              subtitle:
+                  "Alex Chen and Chaduni De Silva registered for the event.",
               time: "2 days ago",
               actionLabel: "View Roster",
               onAction: () {
@@ -785,7 +823,10 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                   children: [
                     Text(
                       time,
-                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10.5),
+                      style: const TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 10.5,
+                      ),
                     ),
                     InkWell(
                       onTap: onAction,
@@ -808,10 +849,11 @@ class _PresidentDashboardState extends State<PresidentDashboard>
     );
   }
 
-    // Reusable Club President Profile Picture (PP) Widget (Gradient ring with initial letter or chosen avatar)
+  // Reusable Club President Profile Picture (PP) Widget (Gradient ring with initial letter or chosen avatar)
   Widget _buildProfilePhoto({double radius = 18}) {
-    String initial =
-        presidentName.isNotEmpty ? presidentName[0].toUpperCase() : 'R';
+    String initial = presidentName.isNotEmpty
+        ? presidentName[0].toUpperCase()
+        : 'R';
 
     return Container(
       padding: const EdgeInsets.all(2.5),
@@ -837,7 +879,6 @@ class _PresidentDashboardState extends State<PresidentDashboard>
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -854,7 +895,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                 width: 34,
                 height: 34,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                errorBuilder: (_, _, _) => Container(
                   width: 34,
                   height: 34,
                   decoration: BoxDecoration(
@@ -951,10 +992,12 @@ class _PresidentDashboardState extends State<PresidentDashboard>
   // ==================== TAB 1: EVENTS TAB ====================
   Widget _buildEventsTab() {
     int totalEvents = clubEvents.length;
-    int pendingApprovals =
-        clubEvents.where((e) => e["status"] == "PENDING").length;
-    int approvedEvents =
-        clubEvents.where((e) => e["status"] == "APPROVED").length;
+    int pendingApprovals = clubEvents
+        .where((e) => e["status"] == "PENDING")
+        .length;
+    int approvedEvents = clubEvents
+        .where((e) => e["status"] == "APPROVED")
+        .length;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -1068,7 +1111,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: kPurple.withOpacity(0.12),
+                                  color: kPurple.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
@@ -1212,9 +1255,11 @@ class _PresidentDashboardState extends State<PresidentDashboard>
   Widget _buildParticipantsTab() {
     // Filter participants by event and search text
     final filteredList = participants.where((p) {
-      final matchesEvent = _selectedEventFilter == "All Events" ||
+      final matchesEvent =
+          _selectedEventFilter == "All Events" ||
           p["eventTitle"] == _selectedEventFilter;
-      final matchesSearch = _searchQuery.isEmpty ||
+      final matchesSearch =
+          _searchQuery.isEmpty ||
           p["name"].toLowerCase().contains(_searchQuery.toLowerCase()) ||
           p["studentId"].toLowerCase().contains(_searchQuery.toLowerCase());
       return matchesEvent && matchesSearch;
@@ -1277,7 +1322,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
               children: [
                 // Event Filter Dropdown (Dark navy text + visible border + blue icon)
                 DropdownButtonFormField<String>(
-                  value: eventOptions.contains(_selectedEventFilter)
+                  initialValue: eventOptions.contains(_selectedEventFilter)
                       ? _selectedEventFilter
                       : "All Events",
                   isExpanded: true,
@@ -1291,11 +1336,17 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                   decoration: InputDecoration(
                     labelText: "Filter by Event",
                     labelStyle: const TextStyle(color: kTextGrey, fontSize: 12),
-                    prefixIcon: const Icon(Icons.filter_list, color: kBlue, size: 20),
+                    prefixIcon: const Icon(
+                      Icons.filter_list,
+                      color: kBlue,
+                      size: 20,
+                    ),
                     filled: true,
                     fillColor: const Color(0xFFF8FAFC),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -1306,14 +1357,19 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                     ),
                   ),
                   items: eventOptions
-                      .map((title) => DropdownMenuItem(
-                            value: title,
-                            child: Text(
-                              title,
-                              style: const TextStyle(color: kBgColor, fontSize: 13),
-                              overflow: TextOverflow.ellipsis,
+                      .map(
+                        (title) => DropdownMenuItem(
+                          value: title,
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              color: kBgColor,
+                              fontSize: 13,
                             ),
-                          ))
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
                       .toList(),
                   onChanged: (val) {
                     setState(() {
@@ -1337,11 +1393,17 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                   decoration: InputDecoration(
                     hintText: "Search student name or ID...",
                     hintStyle: const TextStyle(color: kTextGrey, fontSize: 13),
-                    prefixIcon: const Icon(Icons.search, color: kBlue, size: 20),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: kBlue,
+                      size: 20,
+                    ),
                     filled: true,
                     fillColor: const Color(0xFFF8FAFC),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -1439,10 +1501,12 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                               });
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  isCheckedIn ? Colors.grey.shade200 : kBlue,
-                              foregroundColor:
-                                  isCheckedIn ? kBgColor : Colors.white,
+                              backgroundColor: isCheckedIn
+                                  ? Colors.grey.shade200
+                                  : kBlue,
+                              foregroundColor: isCheckedIn
+                                  ? kBgColor
+                                  : Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(20),
                               ),
@@ -1460,7 +1524,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
   }
 
   // ==================== TAB 3: PROFILE TAB (EDIT PROFILE + PHOTO CHANGE ENABLED) ====================
-    // ==================== PRIVACY & CAMPUS POLICIES MODAL ====================
+  // ==================== PRIVACY & CAMPUS POLICIES MODAL ====================
   void _showPrivacyPolicyModal() {
     showModalBottomSheet(
       context: context,
@@ -1514,36 +1578,31 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                 icon: Icons.lock_outline,
                 iconColor: kBlue,
                 title: "1. Attendee Data Privacy",
-                description:
-                    "Student attendee details including Student IDs, emails, and ticket numbers are strictly confidential. Organizers are authorized to use attendee lists solely for verification and safety during campus events.",
+                description: "Student attendee details including Student IDs, emails, and ticket numbers are strictly confidential. Organizers are authorized to use attendee lists solely for verification and safety during campus events.",
               ),
               _policySection(
                 icon: Icons.verified_user_outlined,
                 iconColor: Colors.green,
                 title: "2. Organizer Code of Conduct",
-                description:
-                    "Club Presidents must ensure all proposed events adhere to University bylaws, campus safety regulations, and ethical guidelines before submitting for Dean approval.",
+                description: "Club Presidents must ensure all proposed events adhere to University bylaws, campus safety regulations, and ethical guidelines before submitting for Dean approval.",
               ),
               _policySection(
                 icon: Icons.event_seat_outlined,
                 iconColor: kPurple,
                 title: "3. Venue & Resource Usage",
-                description:
-                    "Bookings for campus auditoriums, labs, and equipment must be confirmed 7 days prior. Organizers are responsible for maintaining venue integrity and vacating on schedule.",
+                description: "Bookings for campus auditoriums, labs, and equipment must be confirmed 7 days prior. Organizers are responsible for maintaining venue integrity and vacating on schedule.",
               ),
               _policySection(
                 icon: Icons.qr_code_scanner_outlined,
                 iconColor: Colors.orange,
                 title: "4. Attendance & Activity Credits",
-                description:
-                    "Checked-in attendee rosters are directly synced with academic activity credits. Falsifying check-in records or proxy attendance is strictly prohibited under academic integrity policies.",
+                description: "Checked-in attendee rosters are directly synced with academic activity credits. Falsifying check-in records or proxy attendance is strictly prohibited under academic integrity policies.",
               ),
               _policySection(
                 icon: Icons.contact_support_outlined,
                 iconColor: kCyan,
                 title: "5. Policy Contact & Support",
-                description:
-                    "For inquiries regarding club bylaws, budget grants, or safety approvals, contact the Dean of Student Affairs at studentaffairs@nexora.edu.",
+                description: "For inquiries regarding club bylaws, budget grants, or safety approvals, contact the Dean of Student Affairs at studentaffairs@nexora.edu.",
               ),
               const SizedBox(height: 16),
               SizedBox(
@@ -1620,8 +1679,9 @@ class _PresidentDashboardState extends State<PresidentDashboard>
   }
 
   Widget _buildProfileTab() {
-    int checkedInCount =
-        participants.where((p) => p["checkedIn"] == true).length;
+    int checkedInCount = participants
+        .where((p) => p["checkedIn"] == true)
+        .length;
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1680,11 +1740,17 @@ class _PresidentDashboardState extends State<PresidentDashboard>
               ),
               Text(
                 presidentEmail,
-                style: const TextStyle(color: Color(0xFF64748B), fontSize: 12.5),
+                style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 12.5,
+                ),
               ),
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(12),
@@ -1718,7 +1784,10 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                 ),
               ),
             ],
@@ -1764,14 +1833,9 @@ class _PresidentDashboardState extends State<PresidentDashboard>
           'Privacy & Policies',
           _showPrivacyPolicyModal,
         ),
-        _profileActionTile(
-          Icons.logout_rounded,
-          'Log Out',
-          () {
-            Navigator.pop(context);
-          },
-          isDestructive: true,
-        ),
+        _profileActionTile(Icons.logout_rounded, 'Log Out', () {
+          Navigator.pop(context);
+        }, isDestructive: true),
       ],
     );
   }

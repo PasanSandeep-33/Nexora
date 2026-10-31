@@ -35,7 +35,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
   static const Color navy = Color(0xFF050B25);
   static const Color navyCard = Color(0xFF0F1A4E);
   static const Color blue = Color(0xFF3478FF);
-  static const Color purple = Color(0xFF8052F5);
+  // static const Color purple = Color(0xFF8052F5);
   static const Color cyan = Color(0xFF19D9ED);
 
   final List<String> _categories = [
