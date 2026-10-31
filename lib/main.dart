@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'screens/president_dashboard.dart';
 
+import 'splash_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -26,7 +26,7 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Inter',
         useMaterial3: true,
       ),
-      home: const PresidentDashboard(),
+      home:  SplashScreen(),
     );
   }
 }

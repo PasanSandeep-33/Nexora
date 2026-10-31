@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'login_screen.dart';
 import 'services/api_service.dart';
 
 class SignupPage extends StatefulWidget {
@@ -78,7 +79,10 @@ class _SignupPageState extends State<SignupPage> {
         result['message']?.toString() ?? 'Account created successfully!',
       );
 
-      Navigator.pop(context);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+      );
     } catch (e) {
       if (!mounted) return;
 
@@ -130,6 +134,7 @@ class _SignupPageState extends State<SignupPage> {
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
+      style: const TextStyle(color: Colors.black, fontSize: 16),
       textInputAction: textInputAction,
       onFieldSubmitted: onFieldSubmitted,
       decoration: _inputDecoration(hint: hint, icon: Icons.lock_outline_rounded)
@@ -209,7 +214,14 @@ class _SignupPageState extends State<SignupPage> {
                               ),
                             ),
                             GestureDetector(
-                              onTap: () => Navigator.pop(context),
+                              onTap: () {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const LoginPage(),
+                                  ),
+                                );
+                              },
                               child: const Text(
                                 'Login',
                                 style: TextStyle(
@@ -225,6 +237,10 @@ class _SignupPageState extends State<SignupPage> {
 
                         TextFormField(
                           controller: _fullNameController,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 16,
+                          ),
                           textInputAction: TextInputAction.next,
                           textCapitalization: TextCapitalization.words,
                           decoration: _inputDecoration(
@@ -242,6 +258,10 @@ class _SignupPageState extends State<SignupPage> {
                         const SizedBox(height: 14),
                         TextFormField(
                           controller: _emailController,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 16,
+                          ),
                           keyboardType: TextInputType.emailAddress,
                           textInputAction: TextInputAction.next,
                           decoration: _inputDecoration(

@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 
 import 'signup_screen.dart';
 import 'services/api_service.dart';
-import 'screens/events_screen.dart';
+import 'screens/student_dashboard_screen.dart';
+import 'services/auth_storage.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -67,7 +68,26 @@ class _LoginPageState extends State<LoginPage> {
         password: _passwordController.text,
       );
 
+      
+final accessToken = result['access_token'];
+final refreshToken = result['refresh_token'];
+
+if (accessToken is! String ||
+    accessToken.isEmpty ||
+    refreshToken is! String ||
+    refreshToken.isEmpty) {
+  throw Exception('JWT tokens missing');
+}
+
+await AuthStorage.saveTokens(
+  accessToken: accessToken,
+  refreshToken: refreshToken,
+  rememberMe: _rememberMe,
+);
+
+
       if (!mounted) return;
+
 
       final user = result['user'];
 
@@ -75,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const EventsScreen()),
+        MaterialPageRoute(builder: (context) => const StudentDashboardScreen()),
       );
     } catch (error) {
       if (!mounted) return;
@@ -239,6 +259,10 @@ class _LoginPageState extends State<LoginPage> {
                         // EMAIL FIELD
                         TextFormField(
                           controller: _emailController,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 16,
+                          ),
                           keyboardType: TextInputType.emailAddress,
                           textInputAction: TextInputAction.next,
                           decoration: _inputDecoration(
@@ -264,6 +288,10 @@ class _LoginPageState extends State<LoginPage> {
                         // PASSWORD FIELD
                         TextFormField(
                           controller: _passwordController,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 16,
+                          ),
                           obscureText: _hidePassword,
                           textInputAction: TextInputAction.done,
                           onFieldSubmitted: (_) => _login(),

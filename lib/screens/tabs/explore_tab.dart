@@ -49,7 +49,7 @@ class ExploreTab extends StatelessWidget {
               border: Border.all(color: const Color(0xFFE2E8F0)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
+                  color: Colors.black.withValues(alpha: 0.08),
                   blurRadius: 10,
                   offset: const Offset(0, 3),
                 ),
@@ -107,8 +107,8 @@ class ExploreTab extends StatelessWidget {
                     boxShadow: [
                       BoxShadow(
                         color: isSelected
-                            ? blue.withOpacity(0.35)
-                            : Colors.black.withOpacity(0.06),
+                            ? blue.withValues(alpha: 0.35)
+                            : Colors.black.withValues(alpha: 0.06),
                         blurRadius: isSelected ? 10 : 6,
                         offset: const Offset(0, 2),
                       ),
@@ -172,7 +172,7 @@ class ExploreTab extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 16,
             offset: const Offset(0, 5),
           ),
@@ -192,9 +192,9 @@ class ExploreTab extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: purple.withOpacity(0.12),
+                    color: purple.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: purple.withOpacity(0.3)),
+                    border: Border.all(color: purple.withValues(alpha: 0.3)),
                   ),
                   child: Text(
                     event.category.toUpperCase(),
@@ -214,9 +214,9 @@ class ExploreTab extends StatelessWidget {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
+                      color: Colors.red.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                      border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
                     ),
                     child: const Text(
                       'CAPACITY FULL',
@@ -234,10 +234,10 @@ class ExploreTab extends StatelessWidget {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withOpacity(0.12),
+                      color: const Color(0xFF10B981).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: const Color(0xFF10B981).withOpacity(0.3),
+                        color: const Color(0xFF10B981).withValues(alpha: 0.3),
                       ),
                     ),
                     child: const Text(
@@ -431,7 +431,7 @@ class ExploreTab extends StatelessWidget {
                         borderRadius: BorderRadius.circular(30),
                         boxShadow: [
                           BoxShadow(
-                            color: blue.withOpacity(0.35),
+                            color: blue.withValues(alpha: 0.35),
                             blurRadius: 15,
                             offset: const Offset(0, 4),
                           ),

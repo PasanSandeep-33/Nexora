@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../login_screen.dart';
 import '../models/event_model.dart';
@@ -26,12 +29,13 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
   String _selectedCategory = 'All';
   final TextEditingController _searchController = TextEditingController();
   bool _isSearchVisible = false;
+  File? _profileImage; // Selected student profile picture file
 
   // Exact Brand Color Palette
   static const Color navy = Color(0xFF050B25);
   static const Color navyCard = Color(0xFF0F1A4E);
   static const Color blue = Color(0xFF3478FF);
-  static const Color purple = Color(0xFF8052F5);
+  // static const Color purple = Color(0xFF8052F5);
   static const Color cyan = Color(0xFF19D9ED);
 
   final List<String> _categories = [
@@ -59,6 +63,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
         eventId: 101,
         title: 'Nexora Annual Hackathon 2026',
         description: 'A 24-hour university coding sprint where student teams build innovative AI and campus software solutions.',
+        description: 'A 24-hour university coding sprint where student teams build innovative AI and campus software solutions.',
         category: 'Technology',
         eventDate: DateTime.now().add(const Duration(days: 3, hours: 4)),
         location: 'Innovation Center',
@@ -70,6 +75,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
         eventId: 102,
         title: 'windaneeya Handawa',
         description: 'Live acoustic music, drama performances, under the campus amphitheatre lights.',
+        description: 'Live acoustic music, drama performances, under the campus amphitheatre lights.',
         category: 'Cultural',
         eventDate: DateTime.now().add(const Duration(days: 6, hours: 8)),
         location: 'Prof.J.W.Dayananda Somasundara Audiitorium',
@@ -77,42 +83,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
         rsvpCount: 140,
         clubName: 'Art Sub Committee',
       ),
-      /*Event(
-        eventId: 103,
-        title: 'Inter-Faculty Badminton Championship',
-        description:
-            'Annual knockout sports tournament featuring men\'s and women\'s singles and mixed doubles.',
-        category: 'Sports',
-        eventDate: DateTime.now().add(const Duration(days: 8, hours: 2)),
-        location: 'Indoor Sports Complex',
-        capacity: 64,
-        rsvpCount: 64, // Full capacity demo
-        clubName: 'Sports Club',
-      ),
-      Event(
-        eventId: 104,
-        title: 'Practical AI & Autonomous Agents',
-        description:
-            'Hands-on workshop building multimodal computer vision and LLM embeddings pipelines.',
-        category: 'Workshop',
-        eventDate: DateTime.now().add(const Duration(days: 12, hours: 5)),
-        location: 'Turing Computer Lab 4B',
-        capacity: 45,
-        rsvpCount: 22,
-        clubName: 'Data Science Club',
-      ),
-      Event(
-        eventId: 105,
-        title: 'Tech Career & Internship Expo',
-        description:
-            'Meet engineering leads and campus talent scouts from 30+ top tech companies offering summer internships.',
-        category: 'Career',
-        eventDate: DateTime.now().add(const Duration(days: 15, hours: 1)),
-        location: 'University Exhibition Hall',
-        capacity: 300,
-        rsvpCount: 195,
-        clubName: 'Career Guidance Unit',
-      ),*/
     ];
 
     _clubs = [
@@ -121,6 +91,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
         clubName: 'IEEE Computer Society',
         category: 'Technology',
         presidentName: 'Kavindu Perera',
+        description: 'Premier student branch for software engineers, competitive coders, and system hackers.',
         description: 'Premier student branch for software engineers, competitive coders, and system hackers.',
         memberCount: 342,
         isJoined: true,
@@ -154,13 +125,21 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
       widget.user?['name'] ?? widget.user?['email'] ?? 'Amal De Silva';
   String get _userEmail =>
       widget.user?['email'] ?? 'amal.silva@campus.nexora.edu';
+  String get _userName =>
+      widget.user?['name'] ?? widget.user?['email'] ?? 'Amal De Silva';
+  String get _userEmail =>
+      widget.user?['email'] ?? 'amal.silva@campus.nexora.edu';
 
   List<Event> get _filteredEvents {
     return _events.where((event) {
       final matchesCat =
           _selectedCategory == 'All' ||
+      final matchesCat =
+          _selectedCategory == 'All' ||
           event.category.toLowerCase() == _selectedCategory.toLowerCase();
       final query = _searchController.text.trim().toLowerCase();
+      final matchesSearch =
+          query.isEmpty ||
       final matchesSearch =
           query.isEmpty ||
           event.title.toLowerCase().contains(query) ||
@@ -172,6 +151,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
   }
 
   Map<String, dynamic> get _stats => {
+    'total_rsvps': _myRsvps.length,
+    'upcoming_events': _myRsvps.length,
+    'attended_events': _checkedInRsvpIds.length + 1,
+    'clubs_joined': _clubs.where((c) => c.isJoined).length,
+  };
     'total_rsvps': _myRsvps.length,
     'upcoming_events': _myRsvps.length,
     'attended_events': _checkedInRsvpIds.length + 1,
@@ -221,6 +205,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
   // Frontend RSVP Toggle
   void _handleRsvp(Event event) {
     if (_isRsvpd(event.eventId)) {
+      final r = _myRsvps.firstWhere(
+        (item) => item.event.eventId == event.eventId,
+      );
       final r = _myRsvps.firstWhere(
         (item) => item.event.eventId == event.eventId,
       );
@@ -282,6 +269,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
           'Cancel RSVP?',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
+        title: const Text(
+          'Cancel RSVP?',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         content: Text(
           'Release your admission ticket for ${rsvp.event.title}?',
           style: const TextStyle(color: Colors.white70, fontSize: 13),
@@ -293,12 +284,19 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
               'Keep Pass',
               style: TextStyle(color: Colors.white60),
             ),
+            child: const Text(
+              'Keep Pass',
+              style: TextStyle(color: Colors.white60),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -324,6 +322,495 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
     );
   }
 
+  // ==================== IMAGE PICKER (DEVICE GALLERY / CAMERA) ====================
+  Future<void> _pickProfileImage(ImageSource source) async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _profileImage = File(pickedFile.path);
+        });
+        if (mounted) {
+          Navigator.pop(context);
+          _showFloatingSnackBar(
+            message: 'Profile picture updated successfully!',
+            backgroundColor: const Color(0xFF10B981),
+            textColor: Colors.white,
+            icon: Icons.check_circle_rounded,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        _showFloatingSnackBar(
+          message: 'Failed to pick image: $e',
+          backgroundColor: Colors.redAccent,
+          textColor: Colors.white,
+          icon: Icons.error_outline,
+        );
+      }
+    }
+  }
+
+  void _showImagePickerModal() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 18.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "Update Profile Picture",
+              style: TextStyle(
+                color: navy,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              "Select a photo from your device storage to update your profile.",
+              style: TextStyle(color: Color(0xFF64748B), fontSize: 12.5),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.photo_library_rounded, color: blue),
+              ),
+              title: const Text(
+                "Choose from Gallery",
+                style: TextStyle(
+                  color: navy,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14.5,
+                ),
+              ),
+              subtitle: const Text(
+                "Select an image file from device gallery",
+                style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+              ),
+              trailing: const Icon(
+                Icons.arrow_forward_ios,
+                size: 14,
+                color: Color(0xFF94A3B8),
+              ),
+              onTap: () => _pickProfileImage(ImageSource.gallery),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8052F5).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.camera_alt_rounded,
+                  color: const Color(0xFF8052F5),
+                ),
+              ),
+              title: const Text(
+                "Take a Photo",
+                style: TextStyle(
+                  color: navy,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14.5,
+                ),
+              ),
+              subtitle: const Text(
+                "Open camera and take a new photo",
+                style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+              ),
+              trailing: const Icon(
+                Icons.arrow_forward_ios,
+                size: 14,
+                color: Color(0xFF94A3B8),
+              ),
+              onTap: () => _pickProfileImage(ImageSource.camera),
+            ),
+            if (_profileImage != null) ...[
+              const Divider(height: 1),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.redAccent,
+                  ),
+                ),
+                title: const Text(
+                  "Remove Current Photo",
+                  style: TextStyle(
+                    color: Colors.redAccent,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14.5,
+                  ),
+                ),
+                onTap: () {
+                  setState(() {
+                    _profileImage = null;
+                  });
+                  Navigator.pop(ctx);
+                },
+              ),
+            ],
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==================== PRIVACY & POLICIES MODAL ====================
+  void _showPrivacyPolicyModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => ListView(
+          controller: scrollController,
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Row(
+              children: [
+                Icon(Icons.shield_outlined, color: blue, size: 24),
+                SizedBox(width: 8),
+                Text(
+                  "Privacy & Student Policies",
+                  style: TextStyle(
+                    color: navy,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              "Nexora Student Code of Conduct, Pass Verification & Privacy Rules",
+              style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+            ),
+            const SizedBox(height: 18),
+            _policySection(
+              icon: Icons.lock_outline,
+              iconColor: blue,
+              title: "1. Student Data Confidentiality",
+              description: "Your university student ID, academic email, and RSVP registrations are securely stored and only accessible to authorized campus event coordinators.",
+            ),
+            _policySection(
+              icon: Icons.qr_code_2_rounded,
+              iconColor: const Color(0xFF10B981),
+              title: "2. Digital Event Passes & Attendance",
+              description: "Each QR pass issued is uniquely tied to your Student ID. Passes are non-transferable, and attendance is directly logged for official extracurricular activity credits.",
+            ),
+            _policySection(
+              icon: Icons.groups_rounded,
+              iconColor: const Color(0xFF8052F5),
+              title: "3. Campus Club Membership",
+              description: "Joining student clubs grants access to private workshops and voting in committee elections. You can leave or join clubs at any time through the portal.",
+            ),
+            _policySection(
+              icon: Icons.rule_rounded,
+              iconColor: Colors.orange,
+              title: "4. Campus Event Regulations",
+              description: "All attendees must adhere to university conduct bylaws at campus venues (auditoriums, labs, amphitheatre). Failure to comply may lead to pass revocation.",
+            ),
+            _policySection(
+              icon: Icons.mail_outline_rounded,
+              iconColor: cyan,
+              title: "5. Student Affairs Inquiries",
+              description: "For questions regarding event passes, club certifications, or data privacy, contact the Student Affairs Council at studentaffairs@nexora.edu.",
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text(
+                  "I Understand & Agree",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _policySection({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String description,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: iconColor, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: navy,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            description,
+            style: const TextStyle(
+              color: Color(0xFF475569),
+              fontSize: 12,
+              height: 1.45,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== STUDENT EVENT NOTIFICATIONS MODAL ====================
+  void _showStudentNotificationsModal() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Row(
+              children: [
+                Icon(Icons.notifications_active_rounded, color: blue, size: 22),
+                SizedBox(width: 8),
+                Text(
+                  "Event Notifications & Reminders",
+                  style: TextStyle(
+                    color: navy,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              "Pass confirmations, starting reminders & club announcements for you.",
+              style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+
+            // Notification 1: Upcoming Event Reminder (Linked to My Passes)
+            _studentNotificationCard(
+              icon: Icons.confirmation_number_rounded,
+              iconColor: const Color(0xFF10B981),
+              title: "Upcoming Event: Nexora Hackathon 2026",
+              subtitle: "Starts in 3 days at Innovation Center. Bring your laptop and show your QR pass.",
+              time: "Today • 10:00 AM",
+              actionLabel: "View Pass",
+              onAction: () {
+                Navigator.pop(ctx);
+                _tabController.animateTo(1); // My Passes Tab
+              },
+            ),
+
+            // Notification 2: Club Announcement (Linked to Clubs)
+            _studentNotificationCard(
+              icon: Icons.groups_rounded,
+              iconColor: const Color(0xFF8052F5),
+              title: "IEEE Computer Society: Orientation Alert",
+              subtitle: "Pre-hackathon orientation session starts tomorrow at 4:00 PM.",
+              time: "Yesterday • 16:30",
+              actionLabel: "View Club",
+              onAction: () {
+                Navigator.pop(ctx);
+                _tabController.animateTo(2); // Clubs Tab
+              },
+            ),
+
+            // Notification 3: Venue & Stage Update (Linked to Explore)
+            _studentNotificationCard(
+              icon: Icons.celebration_rounded,
+              iconColor: Colors.orange,
+              title: "windaneeya Handawa: Stage Confirmation",
+              subtitle: "Prof. J.W. Dayananda Auditorium doors open at 18:00. Free student entry.",
+              time: "2 days ago",
+              actionLabel: "Explore Event",
+              onAction: () {
+                Navigator.pop(ctx);
+                _tabController.animateTo(0); // Explore Tab
+              },
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _studentNotificationCard({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required String time,
+    required String actionLabel,
+    required VoidCallback onAction,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: iconColor, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: navy,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 11.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      time,
+                      style: const TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 10.5,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: onAction,
+                      child: Text(
+                        actionLabel,
+                        style: const TextStyle(
+                          color: blue,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // QR Digital Admission Pass Viewer
   void _showQrTicketModal(RsvpItem rsvp) {
     showModalBottomSheet(
@@ -332,6 +819,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         final ticket = rsvp.ticket;
+        final qrString =
+            ticket?.qrCode ?? 'NEXORA-PASS-${rsvp.event.eventId}-AC88';
+        final isCheckedIn =
+            (ticket?.isCheckedIn ?? false) ||
+            _checkedInRsvpIds.contains(rsvp.rsvpId);
         final qrString =
             ticket?.qrCode ?? 'NEXORA-PASS-${rsvp.event.eventId}-AC88';
         final isCheckedIn =
@@ -381,9 +873,16 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                                 horizontal: 8,
                                 vertical: 3,
                               ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
                                 color: cyan.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: cyan.withOpacity(0.3),
+                                ),
                                 border: Border.all(
                                   color: cyan.withOpacity(0.3),
                                 ),
@@ -416,6 +915,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                                 color: Colors.white60,
                                 fontSize: 12,
                               ),
+                              style: const TextStyle(
+                                color: Colors.white60,
+                                fontSize: 12,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
@@ -423,6 +926,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                       ),
                       const SizedBox(width: 8),
                       Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
                           vertical: 5,
@@ -518,6 +1025,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                               _showFloatingSnackBar(
                                 message:
                                     'Entrance scan verified! Pass checked in.',
+                                message:
+                                    'Entrance scan verified! Pass checked in.',
                                 backgroundColor: const Color(0xFF10B981),
                                 textColor: Colors.white,
                                 icon: Icons.verified_rounded,
@@ -533,10 +1042,20 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
+                              child: Text(
+                                'Simulate Scan',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: cyan,
                               side: const BorderSide(color: cyan, width: 1.5),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(30),
                               ),
@@ -568,10 +1087,20 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
+                              child: Text(
+                                'Copy Pass ID',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: blue,
                               foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(30),
                               ),
@@ -625,8 +1154,33 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
       body: SafeArea(
         child: Column(
           children: [
-            // Top App Bar
+            // Top App Bar with Logo & Student Profile Pill
             _buildMobileAppHeader(),
+
+            // Welcome Header (Prominently visible when app opens - matching President Dashboard)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              color: navy,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Welcome, $_userName 👋",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 21,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  const Text(
+                    "Explore campus events, manage your passes & clubs.",
+                    style: TextStyle(color: Colors.white70, fontSize: 12.5),
+                  ),
+                ],
+              ),
+            ),
 
             // Responsive 4 Tabs Navigation Bar
             _buildResponsiveTabBar(),
@@ -674,7 +1228,13 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                         backgroundColor: club.isJoined
                             ? const Color(0xFF10B981)
                             : Colors.white,
+                        backgroundColor: club.isJoined
+                            ? const Color(0xFF10B981)
+                            : Colors.white,
                         textColor: club.isJoined ? Colors.white : navy,
+                        icon: club.isJoined
+                            ? Icons.check_circle
+                            : Icons.info_outline,
                         icon: club.isJoined
                             ? Icons.check_circle
                             : Icons.info_outline,
@@ -682,18 +1242,25 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                     },
                   ),
 
-                  // Tab 4: Student Profile
+                  // Tab 4: Student Profile (With Photo Upload & Privacy Policies)
                   ProfileTab(
                     userName: _userName,
                     userEmail: _userEmail,
                     rsvpCount: _myRsvps.length,
                     stats: _stats,
+                    profileImage: _profileImage,
+                    onUpdateProfilePhoto: _showImagePickerModal,
+                    onOpenPrivacyPolicy: _showPrivacyPolicyModal,
+                    onOpenNotifications: _showStudentNotificationsModal,
                     onNavigateToTab: (index) {
                       _tabController.animateTo(index);
                     },
                     onLogout: () {
                       Navigator.pushReplacement(
                         context,
+                        MaterialPageRoute(
+                          builder: (context) => const LoginPage(),
+                        ),
                         MaterialPageRoute(
                           builder: (context) => const LoginPage(),
                         ),
@@ -717,8 +1284,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
   }
 
   Widget _buildMobileAppHeader() {
+    String initial = _userName.isNotEmpty ? _userName[0].toUpperCase() : 'A';
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
       color: navy,
       child: Column(
         children: [
@@ -752,7 +1321,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                     'NEXORA',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 18,
+                      fontSize: 17,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.5,
                     ),
@@ -782,9 +1351,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                 ],
               ),
               const Spacer(),
+
+              // Search Button
               Container(
-                width: 38,
-                height: 38,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
@@ -801,7 +1372,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                   icon: Icon(
                     _isSearchVisible ? Icons.close : Icons.search_rounded,
                     color: navy,
-                    size: 19,
+                    size: 18,
                   ),
                   onPressed: () {
                     setState(() {
@@ -857,8 +1428,17 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
+              style: const TextStyle(
+                color: navy,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
               decoration: InputDecoration(
                 hintText: 'Search campus events, clubs, venues...',
+                hintStyle: const TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 12,
+                ),
                 hintStyle: const TextStyle(
                   color: Color(0xFF94A3B8),
                   fontSize: 12,
@@ -866,6 +1446,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                 prefixIcon: const Icon(Icons.search, color: blue, size: 18),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
+                        icon: const Icon(
+                          Icons.clear,
+                          color: Color(0xFF64748B),
+                          size: 16,
+                        ),
                         icon: const Icon(
                           Icons.clear,
                           color: Color(0xFF64748B),
@@ -879,6 +1464,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                     : null,
                 filled: true,
                 fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 10,
@@ -933,6 +1522,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                     maxLines: 1,
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                   ),
+                  child: Text(
+                    'Explore',
+                    maxLines: 1,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
             ),
@@ -949,8 +1543,16 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                       fontSize: 9,
                       fontWeight: FontWeight.bold,
                     ),
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   backgroundColor: blue,
+                  child: const Icon(
+                    Icons.confirmation_number_rounded,
+                    size: 22,
+                  ),
                   child: const Icon(
                     Icons.confirmation_number_rounded,
                     size: 22,
@@ -959,6 +1561,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                 const SizedBox(height: 2),
                 const FittedBox(
                   fit: BoxFit.scaleDown,
+                  child: Text(
+                    'My Passes',
+                    maxLines: 1,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
                   child: Text(
                     'My Passes',
                     maxLines: 1,
@@ -981,6 +1588,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                     maxLines: 1,
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                   ),
+                  child: Text(
+                    'Clubs',
+                    maxLines: 1,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
             ),
@@ -993,6 +1605,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                 SizedBox(height: 2),
                 FittedBox(
                   fit: BoxFit.scaleDown,
+                  child: Text(
+                    'Profile',
+                    maxLines: 1,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
                   child: Text(
                     'Profile',
                     maxLines: 1,
@@ -1034,10 +1651,20 @@ class _QrCodePainter extends CustomPainter {
           5 * cellSize,
           5 * cellSize,
         ),
+          (x + 1) * cellSize,
+          (y + 1) * cellSize,
+          5 * cellSize,
+          5 * cellSize,
+        ),
         whitePaint,
       );
       canvas.drawRect(
         Rect.fromLTWH(
+          (x + 2) * cellSize,
+          (y + 2) * cellSize,
+          3 * cellSize,
+          3 * cellSize,
+        ),
           (x + 2) * cellSize,
           (y + 2) * cellSize,
           3 * cellSize,
@@ -1070,3 +1697,4 @@ class _QrCodePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
