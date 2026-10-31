@@ -80,11 +80,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   Row(
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.search, color: Colors.white),
-                        onPressed: () {},
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.search, color: Colors.black, size: 20),
+                          onPressed: () {},
+                        ),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
@@ -130,24 +138,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             // Greeting Area
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'Welcome, System Admin 👋',
-                    style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Explore campus events, review approvals & manage system.',
-                    style: TextStyle(color: Colors.white60, fontSize: 13),
-                  ),
-                ],
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Welcome, System Admin 👋',
+                      style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Explore campus events, review approvals & manage system.',
+                      style: TextStyle(color: Colors.white60, fontSize: 13),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 4),
 
-            // 4-Tab Navigation Bar matching Student Portal
+            // 4-Tab Navigation Bar
             Container(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: Row(
@@ -177,17 +188,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
 
-            // Main White Container Card Area
+            // Main Content Area directly on dark background with side margins
             Expanded(
-              child: Container(
-                margin: const EdgeInsets.only(top: 4),
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: _buildSelectedTabContent(),
               ),
             ),
@@ -253,8 +259,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.blue.withOpacity(0.2)),
             ),
             child: Row(
@@ -270,12 +276,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           const SizedBox(height: 16),
 
-          const Text(
-            'Pending Event Approvals',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0B1021)),
-          ),
-          const SizedBox(height: 12),
-
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -286,11 +286,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(28),
                   border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
+                      color: Colors.black.withOpacity(0.1),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -396,23 +396,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   // Tab 1: Events Management View
   Widget _buildEventsTab() {
     return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text('Manage System Events', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0B1021))),
-          SizedBox(height: 12),
-          ListTile(
-            leading: Icon(Icons.event, color: Colors.blueAccent),
-            title: Text('Nexora Annual Hackathon 2026'),
-            subtitle: Text('Status: Approved • 88/100 Registered'),
-          ),
-          Divider(),
-          ListTile(
-            leading: Icon(Icons.event, color: Colors.blueAccent),
-            title: Text('Windaneeya Handawa'),
-            subtitle: Text('Status: Approved • 140/200 Registered'),
-          ),
-        ],
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text('Manage System Events', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0B1021))),
+            SizedBox(height: 12),
+            ListTile(
+              leading: Icon(Icons.event, color: Colors.blueAccent),
+              title: Text('Nexora Annual Hackathon 2026'),
+              subtitle: Text('Status: Approved • 88/100 Registered'),
+            ),
+            Divider(),
+            ListTile(
+              leading: Icon(Icons.event, color: Colors.blueAccent),
+              title: Text('Windaneeya Handawa'),
+              subtitle: Text('Status: Approved • 140/200 Registered'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -420,17 +427,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   // Tab 2: Clubs View
   Widget _buildClubsTab() {
     return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text('Campus Clubs & Societies', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0B1021))),
-          SizedBox(height: 12),
-          ListTile(
-            leading: CircleAvatar(backgroundColor: Colors.indigo, child: Text('CS', style: TextStyle(color: Colors.white))),
-            title: Text('IEEE Computer Society'),
-            subtitle: Text('Premier student branch • 342 members'),
-          ),
-        ],
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text('Campus Clubs & Societies', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0B1021))),
+            SizedBox(height: 12),
+            ListTile(
+              leading: CircleAvatar(backgroundColor: Colors.indigo, child: Text('CS', style: TextStyle(color: Colors.white))),
+              title: Text('IEEE Computer Society'),
+              subtitle: Text('Premier student branch • 342 members'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -438,75 +452,82 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   // Tab 3: Profile View
   Widget _buildProfileTab() {
     return SingleChildScrollView(
-      child: Column(
-        children: [
-          const SizedBox(height: 10),
-          Center(
-            child: Column(
-              children: [
-                Stack(
-                  alignment: Alignment.bottomRight,
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          colors: [Colors.blueAccent, Colors.purpleAccent],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            Center(
+              child: Column(
+                children: [
+                  Stack(
+                    alignment: Alignment.bottomRight,
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Colors.blueAccent, Colors.purpleAccent],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          border: Border.all(color: Colors.white, width: 2),
                         ),
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          'A',
-                          style: TextStyle(fontSize: 36, color: Colors.white, fontWeight: FontWeight.bold),
+                        child: const Center(
+                          child: Text(
+                            'A',
+                            style: TextStyle(fontSize: 36, color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
-                      child: const Icon(Icons.camera_alt, color: Colors.white, size: 14),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Text('System Administrator', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0B1021))),
-                const SizedBox(height: 2),
-                Text('admin.nexora@campus.nexora.edu', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
+                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 14),
+                      ),
+                    ],
                   ),
-                  child: const Text('Admin ID: NXR-ADMIN-2026-01', style: TextStyle(color: Colors.blueAccent, fontSize: 11, fontWeight: FontWeight.bold)),
-                ),
+                  const SizedBox(height: 12),
+                  const Text('System Administrator', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0B1021))),
+                  const SizedBox(height: 2),
+                  Text('admin.nexora@campus.nexora.edu', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                    ),
+                    child: const Text('Admin ID: NXR-ADMIN-2026-01', style: TextStyle(color: Colors.blueAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: const [
+                Expanded(child: _ProfileStatBox(title: 'Approvals', count: '5')),
+                SizedBox(width: 10),
+                Expanded(child: _ProfileStatBox(title: 'Clubs', count: '18')),
+                SizedBox(width: 10),
+                Expanded(child: _ProfileStatBox(title: 'Users', count: '420')),
               ],
             ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: const [
-              Expanded(child: _ProfileStatBox(title: 'Approvals', count: '5')),
-              SizedBox(width: 10),
-              Expanded(child: _ProfileStatBox(title: 'Clubs', count: '18')),
-              SizedBox(width: 10),
-              Expanded(child: _ProfileStatBox(title: 'Users', count: '420')),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildProfileMenuItem(Icons.person_outline, 'Update Admin Profile'),
-          _buildProfileMenuItem(Icons.security, 'Access Control & Roles'),
-          _buildProfileMenuItem(Icons.notifications_outlined, 'System Notifications'),
-          _buildProfileMenuItem(Icons.privacy_tip_outlined, 'Security & Policies'),
-          _buildProfileMenuItem(Icons.logout, 'Log Out', isLogout: true),
-        ],
+            const SizedBox(height: 24),
+            _buildProfileMenuItem(Icons.person_outline, 'Update Admin Profile'),
+            _buildProfileMenuItem(Icons.security, 'Access Control & Roles'),
+            _buildProfileMenuItem(Icons.notifications_outlined, 'System Notifications'),
+            _buildProfileMenuItem(Icons.privacy_tip_outlined, 'Security & Policies'),
+            _buildProfileMenuItem(Icons.logout, 'Log Out', isLogout: true),
+          ],
+        ),
       ),
     );
   }
