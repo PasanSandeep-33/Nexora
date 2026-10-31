@@ -690,7 +690,7 @@ String get _userEmail =>
                       try {
                         await ApiService.logout();
 
-                        if (!mounted) return;
+                        if (!context.mounted) return;
 
                         Navigator.pushAndRemoveUntil(
                           context,
