@@ -68,14 +68,23 @@ class _LoginPageState extends State<LoginPage> {
         password: _passwordController.text,
       );
 
-      final token = result['access_token'];
+      
+final accessToken = result['access_token'];
+final refreshToken = result['refresh_token'];
 
-      if (token is! String || token.isEmpty) {
-        throw Exception('JWT access token missing');
-      }
+if (accessToken is! String ||
+    accessToken.isEmpty ||
+    refreshToken is! String ||
+    refreshToken.isEmpty) {
+  throw Exception('JWT tokens missing');
+}
 
-      // Save JWT token securely
-      await AuthStorage.saveToken(token);
+await AuthStorage.saveTokens(
+  accessToken: accessToken,
+  refreshToken: refreshToken,
+  rememberMe: _rememberMe,
+);
+
 
       if (!mounted) return;
 

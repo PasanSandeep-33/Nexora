@@ -159,7 +159,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _selectedCategory,
+                  initialValue: _selectedCategory,
                   dropdownColor: kWhiteCard,
                   items: ["TECHNOLOGY", "CULTURAL", "SPORTS", "WORKSHOP"]
                       .map(
@@ -270,7 +270,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: selectedEvent,
+                  initialValue: selectedEvent,
                   isExpanded: true,
                   items: clubEvents
                       .map(
@@ -428,7 +428,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                 width: 34,
                 height: 34,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                errorBuilder: (_, _, _) => Container(
                   width: 34,
                   height: 34,
                   decoration: BoxDecoration(
@@ -635,7 +635,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: kPurple.withOpacity(0.12),
+                                  color: kPurple.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
@@ -837,7 +837,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
             child: Column(
               children: [
                 DropdownButtonFormField<String>(
-                  value: eventOptions.contains(_selectedEventFilter)
+                  initialValue: eventOptions.contains(_selectedEventFilter)
                       ? _selectedEventFilter
                       : "All Events",
                   isExpanded: true,
@@ -1031,7 +1031,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: kBlue.withOpacity(0.1),
+                    color: kBlue.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
