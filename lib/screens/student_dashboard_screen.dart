@@ -397,10 +397,13 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: purple.withOpacity(0.1),
+                  color: const Color(0xFF8052F5).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.camera_alt_rounded, color: purple),
+                child: const Icon(
+                  Icons.camera_alt_rounded,
+                  color: const Color(0xFF8052F5),
+                ),
               ),
               title: const Text(
                 "Take a Photo",
@@ -521,7 +524,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
             ),
             _policySection(
               icon: Icons.groups_rounded,
-              iconColor: purple,
+              iconColor: const Color(0xFF8052F5),
               title: "3. Campus Club Membership",
               description: "Joining student clubs grants access to private workshops and voting in committee elections. You can leave or join clubs at any time through the portal.",
             ),
@@ -673,7 +676,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
             // Notification 2: Club Announcement (Linked to Clubs)
             _studentNotificationCard(
               icon: Icons.groups_rounded,
-              iconColor: purple,
+              iconColor: const Color(0xFF8052F5),
               title: "IEEE Computer Society: Orientation Alert",
               subtitle: "Pre-hackathon orientation session starts tomorrow at 4:00 PM.",
               time: "Yesterday • 16:30",
@@ -1327,7 +1330,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: LinearGradient(
-                            colors: [purple, blue, cyan],
+                            colors: [const Color(0xFF8052F5), blue, cyan],
                           ),
                         ),
                         child: CircleAvatar(
