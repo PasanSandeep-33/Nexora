@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:nexora/splash_screen.dart';
+
 import 'splash_screen.dart';
 
 void main() {
@@ -23,10 +25,10 @@ class MyApp extends StatelessWidget {
           secondary: Color(0xFF19D9ED),
           surface: Color(0xFF0A1138),
         ),
-        fontFamily: 'Inter',
+
         useMaterial3: true,
       ),
-      home:  SplashScreen(),
+      home: SplashScreen(),
     );
   }
 }
