@@ -1,11 +1,13 @@
 
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.parsers import MultiPartParser
+from PIL import Image, UnidentifiedImageError
+import cloudinary.uploader
 
-from .models import Events
 from .serializers import EventSerializer, SignupSerializer
 from django.contrib.auth.hashers import check_password
 from django.utils import timezone as django_timezone
@@ -44,7 +46,8 @@ def signup(request):
                 'message': 'Account created successfully',
                 'user_id': user.user_id,
                 'email': user.email,
-                'role': user.role
+                'role': user.role,
+                'profile_image_url': user.profile_image_url,
             },
             status=status.HTTP_201_CREATED
         )
@@ -106,7 +109,8 @@ def login(request):
                 'user_id': user.user_id,
                 'full_name': user.full_name,
                 'email': user.email,
-                'role': user.role
+                'role': user.role,
+                'profile_image_url': user.profile_image_url,
             }
         },
         status=status.HTTP_200_OK
@@ -116,12 +120,79 @@ def login(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def profile(request):
-    user = request.user
+    try:
+        user = Users.objects.get(
+            user_id=request.user.user_id
+        )
+    except Users.DoesNotExist:
+        return Response(
+            {'message': 'User not found'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
 
     return Response({
         'user_id': user.user_id,
+        'full_name': user.full_name,
         'email': user.email,
         'role': user.role,
+        'profile_image_url': user.profile_image_url,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser])
+def upload_profile_image(request):
+    image = request.FILES.get('image')
+    if image is None:
+        return Response(
+            {'message': 'Image is required'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if image.size > 2 * 1024 * 1024:
+        return Response(
+            {'message': 'Image must be 2 MB or smaller'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        image.seek(0)
+        with Image.open(image) as img:
+            if img.format not in ('JPEG', 'PNG', 'WEBP'):
+                raise ValueError('Unsupported image format')
+            img.verify()
+        image.seek(0)
+    except (UnidentifiedImageError, ValueError, OSError):
+        return Response(
+            {'message': 'Invalid image. Use JPG, PNG, or WebP'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        result = cloudinary.uploader.upload(
+            image,
+            folder='nexora/profile_images',
+            resource_type='image',
+        )
+    except Exception:
+        return Response(
+            {'message': 'Image upload failed'},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    # Get the authenticated user's database record
+    user = Users.objects.get(
+        user_id=request.user.user_id
+    )
+
+    # Save Cloudinary URL to PostgreSQL
+    user.profile_image_url = result['secure_url']
+    user.save(update_fields=['profile_image_url'])
+
+    return Response({
+        'message': 'Profile image updated successfully',
+        'profile_image_url': user.profile_image_url,
     })
 
 
