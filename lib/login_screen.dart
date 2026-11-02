@@ -102,10 +102,11 @@ class _LoginPageState extends State<LoginPage> {
         ),
       );
     } catch (error) {
+      debugPrint('Login error type: ${error.runtimeType}');
       if (!mounted) return;
 
       _showMessage(
-        'Login failed. Please check your email and password.',
+        'Unable to log in. Check your connection or try again.',
       );
     } finally {
       if (mounted) {
