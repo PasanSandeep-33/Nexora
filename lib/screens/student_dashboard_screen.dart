@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../login_screen.dart';
+import '../services/api_service.dart';
+import '../services/profile_image_service.dart';
 import '../models/event_model.dart';
 import '../models/rsvp_model.dart';
 import '../models/ticket_model.dart';
@@ -29,7 +31,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
   String _selectedCategory = 'All';
   final TextEditingController _searchController = TextEditingController();
   bool _isSearchVisible = false;
-  File? _profileImage; // Selected student profile picture file
+  File? _profileImage; // Temporary preview while uploading
+  String? _profileImageUrl; // Persistent Cloudinary image URL
+  bool _isUploadingProfileImage = false;
 
   // Exact Brand Color Palette
   static const Color navy = Color(0xFF050B25);
@@ -57,6 +61,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _profileImageUrl = widget.user?['profile_image_url']?.toString();
+    _loadProfileImage();
 
     _events = [
       Event(
@@ -118,10 +124,27 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
     super.dispose();
   }
 
-  String get _userName =>
-      widget.user?['name'] ?? widget.user?['email'] ?? 'Amal De Silva';
-  String get _userEmail =>
-      widget.user?['email'] ?? 'amal.silva@campus.nexora.edu';
+  String get _userName {
+  final user = widget.user;
+
+  final name = user?['full_name'] ?? user?['name'];
+
+  if (name != null && name.toString().trim().isNotEmpty) {
+    return name.toString();
+  }
+
+  final email = user?['email'];
+
+  if (email != null && email.toString().trim().isNotEmpty) {
+    return email.toString().split('@').first;
+  }
+
+  return 'Student';
+}
+
+String get _userEmail {
+  return widget.user?['email']?.toString() ?? '';
+}
 
   List<Event> get _filteredEvents {
     return _events.where((event) {
@@ -292,42 +315,101 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
     );
   }
 
-  // ==================== IMAGE PICKER (DEVICE GALLERY / CAMERA) ====================
-  Future<void> _pickProfileImage(ImageSource source) async {
+  Future<void> _loadProfileImage() async {
     try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? pickedFile = await picker.pickImage(
-        source: source,
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 85,
-      );
-
-      if (pickedFile != null) {
-        setState(() {
-          _profileImage = File(pickedFile.path);
-        });
-        if (mounted) {
-          Navigator.pop(context);
-          _showFloatingSnackBar(
-            message: 'Profile picture updated successfully!',
-            backgroundColor: const Color(0xFF10B981),
-            textColor: Colors.white,
-            icon: Icons.check_circle_rounded,
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        _showFloatingSnackBar(
-          message: 'Failed to pick image: $e',
-          backgroundColor: Colors.redAccent,
-          textColor: Colors.white,
-          icon: Icons.error_outline,
-        );
-      }
+      final profile = await ApiService.getProfile();
+      if (!mounted) return;
+      final url = profile['profile_image_url']?.toString();
+      setState(() {
+        _profileImageUrl = (url == null || url.isEmpty) ? null : url;
+        _profileImage = null;
+      });
+    } catch (error) {
+      // Keep the image supplied at login if profile retrieval is unavailable.
+      debugPrint('Could not load profile image: $error');
     }
   }
+
+  // Upload through Django so the image is available on other devices.
+  
+Future<void> _pickProfileImage(ImageSource source) async {
+  if (_isUploadingProfileImage) return;
+
+  try {
+    final picker = ImagePicker();
+
+    final pickedFile = await picker.pickImage(
+      source: source,
+      maxWidth: 800,
+      maxHeight: 800,
+      imageQuality: 85,
+    );
+
+    if (pickedFile == null || !mounted) return;
+
+    final file = File(pickedFile.path);
+
+    if (await file.length() > 2 * 1024 * 1024) {
+      if (!mounted) return;
+
+      _showFloatingSnackBar(
+        message: 'Please select an image smaller than 2 MB.',
+        backgroundColor: Colors.redAccent,
+        textColor: Colors.white,
+        icon: Icons.error_outline,
+      );
+      return;
+    }
+
+    if (!mounted) return;
+
+    Navigator.pop(context);
+
+    setState(() {
+      _isUploadingProfileImage = true;
+      _profileImage = file;
+    });
+
+    final url = await ProfileImageService.uploadProfileImage(file);
+
+    if (!mounted) return;
+
+    setState(() {
+      _profileImageUrl = url;
+      _profileImage = null;
+    });
+
+    _showFloatingSnackBar(
+      message: 'Profile picture saved successfully!',
+      backgroundColor: const Color(0xFF10B981),
+      textColor: Colors.white,
+      icon: Icons.check_circle_rounded,
+    );
+  } catch (error, stackTrace) {
+    debugPrint('PROFILE IMAGE UPLOAD ERROR: $error');
+    debugPrintStack(stackTrace: stackTrace);
+
+    if (!mounted) return;
+
+    setState(() {
+      _profileImage = null;
+    });
+
+    _showFloatingSnackBar(
+      message: 'Profile photo upload failed. Check terminal.',
+      backgroundColor: Colors.redAccent,
+      textColor: Colors.white,
+      icon: Icons.error_outline,
+    );
+  } finally {
+    if (mounted) {
+      setState(() {
+        _isUploadingProfileImage = false;
+      });
+    }
+  }
+}
+
 
   void _showImagePickerModal() {
     showModalBottomSheet(
@@ -421,36 +503,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
               ),
               onTap: () => _pickProfileImage(ImageSource.camera),
             ),
-            if (_profileImage != null) ...[
-              const Divider(height: 1),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.redAccent.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.delete_outline,
-                    color: Colors.redAccent,
-                  ),
-                ),
-                title: const Text(
-                  "Remove Current Photo",
-                  style: TextStyle(
-                    color: Colors.redAccent,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14.5,
-                  ),
-                ),
-                onTap: () {
-                  setState(() {
-                    _profileImage = null;
-                  });
-                  Navigator.pop(ctx);
-                },
-              ),
-            ],
             const SizedBox(height: 12),
           ],
         ),
@@ -1144,13 +1196,17 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                     rsvpCount: _myRsvps.length,
                     stats: _stats,
                     profileImage: _profileImage,
+                    profileImageUrl: _profileImageUrl,
+                    isUploadingProfileImage: _isUploadingProfileImage,
                     onUpdateProfilePhoto: _showImagePickerModal,
                     onOpenPrivacyPolicy: _showPrivacyPolicyModal,
                     onOpenNotifications: _showStudentNotificationsModal,
                     onNavigateToTab: (index) {
                       _tabController.animateTo(index);
                     },
-                    onLogout: () {
+                    onLogout: () async {
+                      await ApiService.logout();
+                      if (!mounted) return;
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
@@ -1311,8 +1367,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
                           backgroundColor: navy,
                           backgroundImage: _profileImage != null
                               ? FileImage(_profileImage!)
-                              : null,
-                          child: _profileImage == null
+                              : (_profileImageUrl != null && _profileImageUrl!.isNotEmpty
+                                  ? NetworkImage(_profileImageUrl!)
+                                  : null),
+                          child: _profileImage == null &&
+                                  (_profileImageUrl == null || _profileImageUrl!.isEmpty)
                               ? Text(
                                   initial,
                                   style: const TextStyle(

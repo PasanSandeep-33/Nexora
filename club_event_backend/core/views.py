@@ -21,6 +21,9 @@ from .authentication import (
     hash_refresh_jti,
 )
 from typing import cast
+import logging
+
+logger = logging.getLogger(__name__)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -176,9 +179,10 @@ def upload_profile_image(request):
             resource_type='image',
         )
     except Exception:
+        logger.exception("CLOUDINARY PROFILE IMAGE UPLOAD FAILED")
         return Response(
-            {'message': 'Image upload failed'},
-            status=status.HTTP_502_BAD_GATEWAY,
+            {"message": "Image upload failed"},
+            status=502,
         )
 
     # Get the authenticated user's database record
