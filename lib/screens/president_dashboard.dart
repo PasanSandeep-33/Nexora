@@ -94,7 +94,7 @@ class _PresidentDashboardState extends State<PresidentDashboard> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _selectedCategory,
+                  initialValue: _selectedCategory,
                   dropdownColor: kCardColor,
                   style: const TextStyle(color: kTextWhite),
                   items: ["TECHNOLOGY", "CULTURAL", "SPORTS", "WORKSHOP"]
@@ -220,7 +220,7 @@ class _PresidentDashboardState extends State<PresidentDashboard> {
               decoration: BoxDecoration(
                 color: kCardColor,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: kTealAccent.withOpacity(0.3)),
+                border: Border.all(color: kTealAccent.withValues(alpha: 0.3)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -281,7 +281,7 @@ class _PresidentDashboardState extends State<PresidentDashboard> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: kTealAccent.withOpacity(0.1),
+                                    color: kTealAccent.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
