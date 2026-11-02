@@ -82,6 +82,8 @@ class _SignupPageState extends State<SignupPage> {
         MaterialPageRoute(builder: (context) => const LoginPage()),
       );
     } catch (error) {
+      debugPrint('Signup error type: ${error.runtimeType}');
+      
       if (!mounted) return;
 
       _showMessage('Signup failed: $error');
