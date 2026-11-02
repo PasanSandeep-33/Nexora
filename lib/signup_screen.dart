@@ -268,7 +268,7 @@ class _SignupPageState extends State<SignupPage> {
                                   'Already have an account?',
                                   style: TextStyle(
                                     color: Colors.black54,
-                                    fontSize: 12,
+                                    fontSize: 14,
                                   ),
                                 ),
                                 GestureDetector(
@@ -285,7 +285,7 @@ class _SignupPageState extends State<SignupPage> {
                                     style: TextStyle(
                                       color: blue,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 12,
+                                      fontSize: 14,
                                     ),
                                   ),
                                 ),
