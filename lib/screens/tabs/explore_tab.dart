@@ -4,6 +4,7 @@ import '../../models/event_model.dart';
 
 class ExploreTab extends StatelessWidget {
   final List<Event> events;
+  final String userName;
   final bool isLoading;
   final String selectedCategory;
   final List<String> categories;
@@ -15,6 +16,7 @@ class ExploreTab extends StatelessWidget {
   const ExploreTab({
     super.key,
     required this.events,
+    this.userName = "Amal De Silva",
     required this.isLoading,
     required this.selectedCategory,
     required this.categories,
@@ -40,7 +42,30 @@ class ExploreTab extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         children: [
-          // Info Banner
+          // Welcome Header (Under Tabs 4 - Matching President Dashboard)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14.0, top: 2.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Welcome, $userName 👋",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 21,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                const Text(
+                  "Explore campus events, manage your passes & clubs.",
+                  style: TextStyle(color: Colors.white70, fontSize: 12.5),
+                ),
+              ],
+            ),
+          ),
+
+          // Info Banner with clean white card
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
@@ -49,17 +74,17 @@ class ExploreTab extends StatelessWidget {
               border: Border.all(color: const Color(0xFFE2E8F0)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
+                  color: Colors.black.withOpacity(0.08),
                   blurRadius: 10,
                   offset: const Offset(0, 3),
                 ),
               ],
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.verified_user_rounded, color: blue, size: 20),
-                SizedBox(width: 10),
-                Expanded(
+                const Icon(Icons.verified_user_rounded, color: blue, size: 20),
+                const SizedBox(width: 10),
+                const Expanded(
                   child: Text(
                     'Campus events published by verified Club Presidents.',
                     style: TextStyle(
@@ -75,67 +100,76 @@ class ExploreTab extends StatelessWidget {
           const SizedBox(height: 12),
 
           // Horizontal Category Filter Pills
-          const SizedBox(height: 14),
-          // Category Filter Pills (Wrap - fits all neatly without cutoff)
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: categories.map((cat) {
-              final isSelected = cat == selectedCategory;
-              return GestureDetector(
-                onTap: () => onCategorySelected(cat),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: isSelected
-                        ? const LinearGradient(
-                            colors: [purple, blue],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          )
-                        : null,
-                    color: isSelected ? null : Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isSelected ? cyan : const Color(0xFFE2E8F0),
-                      width: 1.2,
+          SizedBox(
+            height: 36,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: categories.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final cat = categories[index];
+                final isSelected = cat == selectedCategory;
+                return GestureDetector(
+                  onTap: () => onCategorySelected(cat),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: isSelected
-                            ? blue.withValues(alpha: 0.35)
-                            : Colors.black.withValues(alpha: 0.06),
-                        blurRadius: isSelected ? 10 : 6,
-                        offset: const Offset(0, 2),
+                    decoration: BoxDecoration(
+                      gradient: isSelected
+                          ? const LinearGradient(
+                              colors: [purple, blue],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            )
+                          : null,
+                      color: isSelected ? null : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected ? cyan : const Color(0xFFE2E8F0),
+                        width: 1.2,
                       ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isSelected) ...[
-                        const Icon(Icons.check, size: 13, color: Colors.white),
-                        const SizedBox(width: 4),
-                      ],
-                      Text(
-                        cat,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : navy,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                      boxShadow: [
+                        BoxShadow(
+                          color: isSelected
+                              ? blue.withOpacity(0.35)
+                              : Colors.black.withOpacity(0.06),
+                          blurRadius: isSelected ? 10 : 6,
+                          offset: const Offset(0, 2),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isSelected) ...[
+                          const Icon(
+                            Icons.check,
+                            size: 13,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        Text(
+                          cat,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : navy,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            }).toList(),
+                );
+              },
+            ),
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 14),
+
           // Events Feed
           if (isLoading)
             const Center(
@@ -148,7 +182,7 @@ class ExploreTab extends StatelessWidget {
             _buildEmptyState(
               icon: Icons.event_busy_rounded,
               title: 'No Events Published Yet',
-              subtitle: 'Events created and submitted by Club Presidents will be displayed here once approved.',
+              subtitle: 'Events created and submitted by Club Presidents will be displayed here once approved. Pull down to refresh.',
             )
           else
             ...events.map((event) => _buildEventCard(event)),
@@ -172,7 +206,7 @@ class ExploreTab extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withOpacity(0.08),
             blurRadius: 16,
             offset: const Offset(0, 5),
           ),
@@ -192,9 +226,9 @@ class ExploreTab extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: purple.withValues(alpha: 0.12),
+                    color: purple.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: purple.withValues(alpha: 0.3)),
+                    border: Border.all(color: purple.withOpacity(0.3)),
                   ),
                   child: Text(
                     event.category.toUpperCase(),
@@ -214,9 +248,9 @@ class ExploreTab extends StatelessWidget {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.1),
+                      color: Colors.red.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                      border: Border.all(color: Colors.red.withOpacity(0.3)),
                     ),
                     child: const Text(
                       'CAPACITY FULL',
@@ -234,10 +268,10 @@ class ExploreTab extends StatelessWidget {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                      color: const Color(0xFF10B981).withOpacity(0.12),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                        color: const Color(0xFF10B981).withOpacity(0.3),
                       ),
                     ),
                     child: const Text(
@@ -303,7 +337,7 @@ class ExploreTab extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // Date & Location Info Row
+            // Responsive Date & Location Info Row
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
@@ -379,7 +413,7 @@ class ExploreTab extends StatelessWidget {
             ),
             const SizedBox(height: 14),
 
-            // RSVP Action Button
+            // RSVP Action Button with Gradient
             SizedBox(
               width: double.infinity,
               height: 46,
@@ -431,7 +465,7 @@ class ExploreTab extends StatelessWidget {
                         borderRadius: BorderRadius.circular(30),
                         boxShadow: [
                           BoxShadow(
-                            color: blue.withValues(alpha: 0.35),
+                            color: blue.withOpacity(0.35),
                             blurRadius: 15,
                             offset: const Offset(0, 4),
                           ),
