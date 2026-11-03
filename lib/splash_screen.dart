@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -21,20 +20,24 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
 
-    _timer = Timer(
-      const Duration(seconds: 5),
-      _checkLogin,
-    );
+    _timer = Timer(const Duration(seconds: 5), _checkLogin);
   }
 
   Future<void> _checkLogin() async {
     bool isLoggedIn = false;
+    Map<String, dynamic>? savedUser;
 
     try {
-      // Restore login using saved refresh token
+      // Step 1: Restore JWT session
       isLoggedIn = await ApiService.refreshSession();
+
+      // Step 2: Get actual user profile
+      if (isLoggedIn) {
+        savedUser = await ApiService.getProfile();
+
+        debugPrint('Auto login profile loaded: ${savedUser['full_name']}');
+      }
     } catch (error) {
-      // Do not delete tokens on network failure
       debugPrint('Auto login failed: $error');
       isLoggedIn = false;
     }
@@ -44,8 +47,8 @@ class _SplashScreenState extends State<SplashScreen> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (context) => isLoggedIn
-            ? const StudentDashboardScreen()
+        builder: (context) => isLoggedIn && savedUser != null
+            ? StudentDashboardScreen(user: savedUser)
             : const LoginPage(),
       ),
     );
@@ -61,10 +64,7 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SizedBox.expand(
-        child: Image.asset(
-          'assets/images/splash.png',
-          fit: BoxFit.cover,
-        ),
+        child: Image.asset('assets/images/splash.png', fit: BoxFit.cover),
       ),
     );
   }
