@@ -5,7 +5,8 @@ from .club_registration_views import (
     submit_club_registration,
     list_club_registration_requests,
     approve_club_registration,
-    reject_club_registration
+    reject_club_registration,
+    view_club_registration_document,
 )
 
 urlpatterns = [
@@ -39,5 +40,10 @@ urlpatterns = [
     "admin/club-registrations/<int:registration_id>/reject/",
     reject_club_registration,
     name="admin-club-registration-reject",
+    ),
+    path(
+    "admin/club-registrations/<int:registration_id>/document/",
+    view_club_registration_document,
+    name="view-club-registration-document",
     ),
 ]
