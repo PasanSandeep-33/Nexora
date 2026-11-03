@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import 'package:nexora/splash_screen.dart';
+
 import 'splash_screen.dart';
 
 void main() {
@@ -8,12 +11,24 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Nexora',
       debugShowCheckedModeBanner: false,
-      home:  SplashScreen(),
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF030620),
+        primaryColor: const Color(0xFF3478FF),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF3478FF),
+          secondary: Color(0xFF19D9ED),
+          surface: Color(0xFF0A1138),
+        ),
+
+        useMaterial3: true,
+      ),
+      home: SplashScreen(),
     );
   }
 }

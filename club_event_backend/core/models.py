@@ -6,6 +6,9 @@
 #   * Remove `managed = False` lines if you wish to allow Django to create, modify, and delete the table
 # Feel free to rename the models, but don't rename db_table values or field names.
 from django.db import models
+from django.db.models import deletion
+
+DB_CASCADE = deletion.DB_CASCADE  # type: ignore[attr-defined]
 
 
 class Users(models.Model):
@@ -67,7 +70,7 @@ class EventApprovals(models.Model):
     reviewed_at = models.DateTimeField()
     comments = models.TextField(blank=True, null=True)
     admin = models.ForeignKey(Users, models.DO_NOTHING)
-    event = models.ForeignKey(Events, models.DB_CASCADE)
+    event = models.ForeignKey(Events, on_delete=DB_CASCADE)
 
     class Meta:
         managed = False
@@ -79,7 +82,7 @@ class Rsvps(models.Model):
     registered_at = models.DateTimeField()
     status = models.CharField(max_length=20)
     user = models.ForeignKey(Users, models.DO_NOTHING)
-    event = models.ForeignKey(Events, models.DB_CASCADE)
+    event = models.ForeignKey(Events, on_delete=DB_CASCADE)
 
     class Meta:
         managed = False
@@ -91,7 +94,7 @@ class Tickets(models.Model):
     ticket_id = models.BigAutoField(primary_key=True)
     qr_code = models.TextField(unique=True)
     issued_at = models.DateTimeField()
-    rsvp = models.OneToOneField(Rsvps, models.DB_CASCADE)
+    rsvp = models.OneToOneField(Rsvps, on_delete=DB_CASCADE)
 
     class Meta:
         managed = False
@@ -102,8 +105,38 @@ class Attendance(models.Model):
     attendance_id = models.BigAutoField(primary_key=True)
     checked_in_at = models.DateTimeField()
     check_in_by = models.ForeignKey(Users, models.DO_NOTHING, db_column='check_in_by', blank=True, null=True)
-    ticket = models.OneToOneField(Tickets, models.DB_CASCADE)
+    ticket = models.OneToOneField(Tickets, on_delete=DB_CASCADE)
 
     class Meta:
         managed = False
         db_table = 'attendance'
+
+
+class RefreshSession(models.Model):
+    session_id = models.BigAutoField(primary_key=True)
+
+    user = models.ForeignKey(
+        Users,
+        on_delete=models.DO_NOTHING,
+        related_name='refresh_sessions',
+    )
+
+    token_jti_hash = models.CharField(
+        max_length=64,
+        unique=True,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    expires_at = models.DateTimeField()
+
+    revoked_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = 'refresh_sessions'
+        indexes = [
+            models.Index(fields=['user', 'expires_at']),
+        ]
