@@ -18,6 +18,11 @@ class Users(models.Model):
     password_hash = models.TextField()
     role = models.CharField(max_length=20)
 
+    # Email verification fields
+    email_verified = models.BooleanField(default=False)
+    email_verified_at = models.DateTimeField(null=True, blank=True)
+
+
     profile_image_url = models.TextField(
         blank=True,
         null=True,
@@ -144,4 +149,26 @@ class RefreshSession(models.Model):
         db_table = 'refresh_sessions'
         indexes = [
             models.Index(fields=['user', 'expires_at']),
+        ]
+
+class EmailVerificationToken(models.Model):
+    user = models.ForeignKey(
+        Users,
+        on_delete=models.CASCADE,
+        related_name="email_verification_tokens",
+    )
+
+    token_hash = models.CharField(
+        max_length=64,
+        unique=True,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "email_verification_tokens"
+        indexes = [
+            models.Index(fields=["user", "expires_at"]),
         ]
