@@ -62,4 +62,17 @@ class Migration(migrations.Migration):
             ),
             reverse_sql=migrations.RunSQL.noop,
         ),
+        migrations.RunSQL(
+            sql=(
+                "CREATE UNIQUE INDEX unique_pending_club_registration_name "
+                "ON public.club_registration_requests "
+                "(LOWER(BTRIM(club_name))) "
+                "WHERE status = 'pending';"
+            ),
+            reverse_sql=(
+                "DROP INDEX IF EXISTS "
+                "public.unique_pending_club_registration_name;"
+            ),
+        ),
+
     ]

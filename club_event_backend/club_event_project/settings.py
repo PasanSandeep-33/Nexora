@@ -17,7 +17,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 import os
 from dotenv import load_dotenv
-import cloudinary
 
 # Load .env file
 load_dotenv(BASE_DIR / '.env')
@@ -26,21 +25,22 @@ load_dotenv(BASE_DIR / '.env')
 
 import cloudinary
 
-cloudinary_cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
-cloudinary_api_key = os.getenv("CLOUDINARY_API_KEY")
-cloudinary_api_secret = os.getenv("CLOUDINARY_API_SECRET")
+cloudinary_cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "").strip()
+cloudinary_api_key = os.getenv("CLOUDINARY_API_KEY", "").strip()
+cloudinary_api_secret = os.getenv("CLOUDINARY_API_SECRET", "").strip()
 
-if all([
+if not all([
     cloudinary_cloud_name,
     cloudinary_api_key,
     cloudinary_api_secret
 ]):
-    cloudinary.config(
-        cloud_name=cloudinary_cloud_name,
-        api_key=cloudinary_api_key,
-        api_secret=cloudinary_api_secret,
-        secure=True,
-    )
+    raise ValueError("Cloudinary environment variables are missing")
+cloudinary.config(
+    cloud_name=cloudinary_cloud_name,
+    api_key=cloudinary_api_key,
+    api_secret=cloudinary_api_secret,
+    secure=True,
+)
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
