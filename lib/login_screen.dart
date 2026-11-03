@@ -90,17 +90,26 @@ class _LoginPageState extends State<LoginPage> {
 
       final user = result['user'];
 
-      _showMessage(
-        'Welcome ${user is Map ? (user['full_name'] ?? '') : ''}!',
-      );
+if (user is! Map) {
+  throw Exception('User details missing from login response');
+}
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) =>
-              const StudentDashboardScreen(),
-        ),
-      );
+final loggedInUser = Map<String, dynamic>.from(user);
+
+if (!mounted) return;
+
+_showMessage(
+  'Welcome ${loggedInUser['full_name'] ?? 'Student'}!',
+);
+
+Navigator.pushReplacement(
+  context,
+  MaterialPageRoute(
+    builder: (context) => StudentDashboardScreen(
+      user: loggedInUser,
+    ),
+  ),
+);
     } catch (error) {
       debugPrint('Login error type: ${error.runtimeType}');
       if (!mounted) return;
@@ -353,7 +362,7 @@ class _LoginPageState extends State<LoginPage> {
                                       "Don't have an account?",
                                       style: TextStyle(
                                         color: Colors.black54,
-                                        fontSize: 12,
+                                        fontSize: 14,
                                       ),
                                     ),
 
@@ -373,7 +382,7 @@ class _LoginPageState extends State<LoginPage> {
                                           color: blue,
                                           fontWeight:
                                               FontWeight.bold,
-                                          fontSize: 12,
+                                          fontSize: 14,
                                         ),
                                       ),
                                     ),
@@ -496,6 +505,14 @@ class _LoginPageState extends State<LoginPage> {
                                         Checkbox(
                                           value: _rememberMe,
                                           activeColor: blue,
+                                          side: const BorderSide(
+                                          color: Color(0xFF3478FF),
+                                          width: 2,
+                                          ),
+
+                                          shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(4),
+                                          ),
                                           visualDensity:
                                               VisualDensity.compact,
 
@@ -511,7 +528,7 @@ class _LoginPageState extends State<LoginPage> {
                                           'Remember Me',
                                           style: TextStyle(
                                             color: Colors.black54,
-                                            fontSize: 12,
+                                            fontSize: 14,
                                           ),
                                         ),
                                       ],
@@ -535,7 +552,7 @@ class _LoginPageState extends State<LoginPage> {
                                         'Forgot Password?',
                                         style: TextStyle(
                                           color: blue,
-                                          fontSize: 12,
+                                          fontSize: 14,
                                         ),
                                       ),
                                     ),
@@ -631,7 +648,7 @@ class _LoginPageState extends State<LoginPage> {
                                         style: TextStyle(
                                           color:
                                               Colors.grey.shade600,
-                                          fontSize: 12,
+                                          fontSize: 14,
                                         ),
                                       ),
                                     ),

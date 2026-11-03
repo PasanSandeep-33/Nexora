@@ -1,3 +1,4 @@
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -11,10 +12,11 @@ class ProfileTab extends StatelessWidget {
   final VoidCallback onLogout;
   final void Function({required String message}) onShowSnackBar;
   final File? profileImage;
+  final String? profileImageUrl;
+  final bool isUploadingProfileImage;
   final VoidCallback? onUpdateProfilePhoto;
   final VoidCallback? onOpenPrivacyPolicy;
-  final VoidCallback?
-  onOpenNotifications; // 👉 මෙන්න මේ parameter එක එක්විය යුතුය
+  final VoidCallback? onOpenNotifications;
 
   const ProfileTab({
     super.key,
@@ -26,6 +28,8 @@ class ProfileTab extends StatelessWidget {
     required this.onLogout,
     required this.onShowSnackBar,
     this.profileImage,
+    this.profileImageUrl,
+    this.isUploadingProfileImage = false,
     this.onUpdateProfilePhoto,
     this.onOpenPrivacyPolicy,
     this.onOpenNotifications,
@@ -39,12 +43,19 @@ class ProfileTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String initial = userName.isNotEmpty ? userName[0].toUpperCase() : 'A';
+    final String initial =
+        userName.isNotEmpty ? userName[0].toUpperCase() : 'A';
+
+    final ImageProvider? avatarImage = profileImage != null
+        ? FileImage(profileImage!)
+        : (profileImageUrl != null && profileImageUrl!.isNotEmpty
+            ? NetworkImage(profileImageUrl!)
+            : null);
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       children: [
-        // Digital Student Card with Clickable Profile Picture
+        // Digital Student Card
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -61,7 +72,6 @@ class ProfileTab extends StatelessWidget {
           ),
           child: Column(
             children: [
-              // Avatar with Gradient Ring + Camera Edit Badge
               Stack(
                 alignment: Alignment.bottomRight,
                 children: [
@@ -70,16 +80,16 @@ class ProfileTab extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(3),
                       decoration: const BoxDecoration(
-                        gradient: LinearGradient(colors: [purple, blue, cyan]),
+                        gradient: LinearGradient(
+                          colors: [purple, blue, cyan],
+                        ),
                         shape: BoxShape.circle,
                       ),
                       child: CircleAvatar(
                         radius: 36,
                         backgroundColor: navy,
-                        backgroundImage: profileImage != null
-                            ? FileImage(profileImage!)
-                            : null,
-                        child: profileImage == null
+                        backgroundImage: avatarImage,
+                        child: avatarImage == null
                             ? Text(
                                 initial,
                                 style: const TextStyle(
@@ -99,7 +109,10 @@ class ProfileTab extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: blue,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 2,
+                        ),
                       ),
                       child: const Icon(
                         Icons.camera_alt,
@@ -110,6 +123,18 @@ class ProfileTab extends StatelessWidget {
                   ),
                 ],
               ),
+
+              if (isUploadingProfileImage) ...[
+                const SizedBox(height: 8),
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                  ),
+                ),
+              ],
+
               const SizedBox(height: 12),
               Text(
                 userName,
@@ -135,7 +160,9 @@ class ProfileTab extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: blue.withOpacity(0.3)),
+                  border: Border.all(
+                    color: blue.withOpacity(0.3),
+                  ),
                 ),
                 child: const Text(
                   'Student ID: NXR-2026-CS88',
@@ -149,14 +176,19 @@ class ProfileTab extends StatelessWidget {
             ],
           ),
         ),
+
         const SizedBox(height: 14),
 
-        // Quick Stats Strip
+        // Quick Statistics
         Row(
           children: [
             _statBox('Passes', '$rsvpCount', blue),
             const SizedBox(width: 8),
-            _statBox('Clubs', '${stats['clubs_joined'] ?? 0}', purple),
+            _statBox(
+              'Clubs',
+              '${stats['clubs_joined'] ?? 0}',
+              purple,
+            ),
             const SizedBox(width: 8),
             _statBox(
               'Attended',
@@ -165,9 +197,10 @@ class ProfileTab extends StatelessWidget {
             ),
           ],
         ),
+
         const SizedBox(height: 16),
 
-        // Action Tiles
+        // Profile Actions
         _profileActionTile(
           Icons.camera_alt_outlined,
           'Update Profile Picture',
@@ -188,7 +221,9 @@ class ProfileTab extends StatelessWidget {
           'Event Notifications',
           onOpenNotifications ??
               () {
-                onShowSnackBar(message: 'All event reminders are active.');
+                onShowSnackBar(
+                  message: 'All event reminders are active.',
+                );
               },
         ),
         _profileActionTile(
@@ -211,14 +246,20 @@ class ProfileTab extends StatelessWidget {
     );
   }
 
-  Widget _statBox(String label, String value, Color color) {
+  Widget _statBox(
+    String label,
+    String value,
+    Color color,
+  ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(
+            color: const Color(0xFFE2E8F0),
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.06),
@@ -263,7 +304,9 @@ class ProfileTab extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: const Color(0xFFE2E8F0),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
@@ -275,13 +318,17 @@ class ProfileTab extends StatelessWidget {
       child: ListTile(
         leading: Icon(
           icon,
-          color: isDestructive ? Colors.redAccent : blue,
+          color: isDestructive
+              ? Colors.redAccent
+              : blue,
           size: 21,
         ),
         title: Text(
           title,
           style: TextStyle(
-            color: isDestructive ? Colors.redAccent : navy,
+            color: isDestructive
+                ? Colors.redAccent
+                : navy,
             fontSize: 13.5,
             fontWeight: FontWeight.w600,
           ),
