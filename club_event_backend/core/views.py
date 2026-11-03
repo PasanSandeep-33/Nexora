@@ -1,5 +1,19 @@
 
-from rest_framework.decorators import api_view, permission_classes, parser_classes
+from .email_verification import send_verification_email
+from django.db import transaction
+from django.utils import timezone
+from .models import EmailVerificationToken
+from .email_verification import hash_verification_token
+
+from rest_framework.decorators import (
+    api_view,
+    permission_classes,
+    parser_classes,
+    throttle_classes,
+)
+import hashlib
+from django.core.cache import cache
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
@@ -36,29 +50,50 @@ def event_list(request):
     return Response(serializer.data)
 
 
-@api_view(['POST'])
+
+@api_view(["POST"])
 @permission_classes([AllowAny])
 def signup(request):
     serializer = SignupSerializer(data=request.data)
 
-    if serializer.is_valid():
-        user = cast(Users, serializer.save())
-
+    if not serializer.is_valid():
         return Response(
-            {
-                'message': 'Account created successfully',
-                'user_id': user.user_id,
-                'email': user.email,
-                'role': user.role,
-                'profile_image_url': user.profile_image_url,
-            },
-            status=status.HTTP_201_CREATED
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    user = cast(Users, serializer.save())
+
+    email_sent = False
+
+    try:
+        send_verification_email(user)
+        email_sent = True
+    except Exception:
+        # Keep signup successful if email delivery fails.
+        # A resend endpoint will be added later.
+        import logging
+        logging.getLogger(__name__).exception(
+            "Verification email delivery failed for user_id=%s",
+            user.user_id,
         )
 
     return Response(
-        serializer.errors,
-        status=status.HTTP_400_BAD_REQUEST
+        {
+            "message": (
+                "Account created successfully. "
+                "Please verify your email address."
+            ),
+            "user_id": user.user_id,
+            "email": user.email,
+            "role": user.role,
+            "profile_image_url": user.profile_image_url,
+            "email_verified": False,
+            "verification_email_sent": email_sent,
+        },
+        status=status.HTTP_201_CREATED,
     )
+
 
 
 @api_view(['POST'])
@@ -261,3 +296,122 @@ def logout(request):
         )
 
     return Response({"message": "Logged out successfully"})
+
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def verify_email(request):
+    token = request.data.get("token")
+
+    if not isinstance(token, str) or not token:
+        return Response(
+            {"error": "Verification token is required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    token_hash = hash_verification_token(token)
+
+    with transaction.atomic():
+        verification = (
+            EmailVerificationToken.objects
+            .select_for_update()
+            .filter(token_hash=token_hash)
+            .first()
+        )
+
+        if verification is None:
+            return Response(
+                {"error": "Invalid verification token."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if verification.used_at is not None:
+            return Response(
+                {"error": "This verification token has already been used."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if verification.expires_at <= timezone.now():
+            return Response(
+                {"error": "Verification token has expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = verification.user
+
+        user.email_verified = True
+        user.email_verified_at = timezone.now()
+        user.save(
+            update_fields=["email_verified", "email_verified_at"]
+        )
+
+        verification.used_at = timezone.now()
+        verification.save(update_fields=["used_at"])
+
+        EmailVerificationToken.objects.filter(
+            user=user,
+            used_at__isnull=True,
+        ).update(used_at=timezone.now())
+
+    return Response(
+        {"message": "Email verified successfully."},
+        status=status.HTTP_200_OK,
+    )
+
+
+class ResendVerificationThrottle(AnonRateThrottle):
+    scope = "resend_verification"
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@throttle_classes([ResendVerificationThrottle])
+def resend_verification_email(request):
+    generic_message = (
+        "If this email belongs to an unverified account, "
+        "a verification email will be sent."
+    )
+
+    email = request.data.get("email")
+
+    if not isinstance(email, str) or not email.strip():
+        return Response(
+            {"error": "A valid email is required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    email = email.strip().lower()
+
+    if len(email) > 255:
+        return Response(
+            {"error": "Invalid email."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    cooldown_key = "resend_email:" + hashlib.sha256(
+        email.encode("utf-8")
+    ).hexdigest()
+
+    if not cache.add(cooldown_key, "1", timeout=60):
+        return Response(
+            {"message": generic_message},
+            status=status.HTTP_200_OK,
+        )
+
+    user = Users.objects.filter(
+        email__iexact=email
+    ).first()
+
+    if user is not None and not user.email_verified:
+        try:
+            send_verification_email(user)
+        except Exception:
+            logger.exception(
+                "Verification email resend failed"
+            )
+
+    return Response(
+        {"message": generic_message},
+        status=status.HTTP_200_OK,
+    )
