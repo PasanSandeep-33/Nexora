@@ -56,6 +56,13 @@ ALLOWED_HOSTS = [
     'nexora-event-mgmt-api.onrender.com',
 ]
 
+# CORS configuration for Flutter Web
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5000",
+    "http://localhost:58574",
+    "http://127.0.0.1:5000",
+]
+
 render_hostname = os.getenv('RENDER_EXTERNAL_HOSTNAME')
 
 if render_hostname:
@@ -78,10 +85,12 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
