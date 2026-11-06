@@ -17,7 +17,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 import os
 from dotenv import load_dotenv
-import cloudinary
 
 # Load .env file
 load_dotenv(BASE_DIR / '.env')
@@ -26,21 +25,22 @@ load_dotenv(BASE_DIR / '.env')
 
 import cloudinary
 
-cloudinary_cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
-cloudinary_api_key = os.getenv("CLOUDINARY_API_KEY")
-cloudinary_api_secret = os.getenv("CLOUDINARY_API_SECRET")
+cloudinary_cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "").strip()
+cloudinary_api_key = os.getenv("CLOUDINARY_API_KEY", "").strip()
+cloudinary_api_secret = os.getenv("CLOUDINARY_API_SECRET", "").strip()
 
-if all([
+if not all([
     cloudinary_cloud_name,
     cloudinary_api_key,
     cloudinary_api_secret
 ]):
-    cloudinary.config(
-        cloud_name=cloudinary_cloud_name,
-        api_key=cloudinary_api_key,
-        api_secret=cloudinary_api_secret,
-        secure=True,
-    )
+    raise ValueError("Cloudinary environment variables are missing")
+cloudinary.config(
+    cloud_name=cloudinary_cloud_name,
+    api_key=cloudinary_api_key,
+    api_secret=cloudinary_api_secret,
+    secure=True,
+)
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -54,6 +54,13 @@ ALLOWED_HOSTS = [
     'localhost',
     '10.0.2.2',
     'nexora-event-mgmt-api.onrender.com',
+]
+
+# CORS configuration for Flutter Web
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5000",
+    "http://localhost:58574",
+    "http://127.0.0.1:5000",
 ]
 
 render_hostname = os.getenv('RENDER_EXTERNAL_HOSTNAME')
@@ -78,10 +85,12 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',

@@ -18,6 +18,11 @@ class Users(models.Model):
     password_hash = models.TextField()
     role = models.CharField(max_length=20)
 
+    # Email verification fields
+    email_verified = models.BooleanField(default=False)
+    email_verified_at = models.DateTimeField(null=True, blank=True)
+
+
     profile_image_url = models.TextField(
         blank=True,
         null=True,
@@ -31,6 +36,11 @@ class Users(models.Model):
 class Clubs(models.Model):
     club_id = models.BigAutoField(primary_key=True)
     club_name = models.CharField(unique=True, max_length=150)
+    category = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+    )
     description = models.TextField(blank=True, null=True)
     user = models.ForeignKey(Users, models.DO_NOTHING, blank=True, null=True)
 
@@ -144,4 +154,125 @@ class RefreshSession(models.Model):
         db_table = 'refresh_sessions'
         indexes = [
             models.Index(fields=['user', 'expires_at']),
+        ]
+
+class EmailVerificationToken(models.Model):
+    user = models.ForeignKey(
+        Users,
+        on_delete=models.CASCADE,
+        related_name="email_verification_tokens",
+    )
+
+    token_hash = models.CharField(
+        max_length=64,
+        unique=True,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "email_verification_tokens"
+        indexes = [
+            models.Index(fields=["user", "expires_at"]),
+        ]
+
+class ClubRegistrationRequest(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+    ]
+
+    applicant = models.ForeignKey(
+        Users,
+        on_delete=models.PROTECT,
+        related_name="club_registration_requests",
+    )
+
+    club_name = models.CharField(max_length=150)
+    category = models.CharField(max_length=100)
+    description = models.TextField()
+
+    # Reference to a document stored privately.
+    proof_file_key = models.TextField()
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="pending",
+    )
+
+    reviewed_by = models.ForeignKey(
+        Users,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="reviewed_club_requests",
+    )
+
+    review_reason = models.TextField(blank=True)
+
+    approved_club = models.ForeignKey(
+        Clubs,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="registration_requests",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "club_registration_requests"
+
+class PresidencyTransfer(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("accepted", "Accepted"),
+        ("declined", "Declined"),
+        ("cancelled", "Cancelled"),
+    ]
+
+    club = models.ForeignKey(
+        Clubs,
+        on_delete=models.PROTECT,
+        related_name="presidency_transfers",
+    )
+
+    from_user = models.ForeignKey(
+        Users,
+        on_delete=models.PROTECT,
+        related_name="outgoing_presidency_transfers",
+    )
+
+    to_user = models.ForeignKey(
+        Users,
+        on_delete=models.PROTECT,
+        related_name="incoming_presidency_transfers",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="pending",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "presidency_transfers"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["club"],
+                condition=models.Q(status="pending"),
+                name="unique_pending_presidency_transfer_per_club",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(from_user=models.F("to_user")),
+                name="presidency_transfer_different_users",
+            ),
         ]
