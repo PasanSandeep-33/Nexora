@@ -839,7 +839,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.event_note_rounded, size: 20),
+                        Icon(Icons.event_rounded, size: 20),
                         SizedBox(height: 2),
                         FittedBox(fit: BoxFit.scaleDown, child: Text('Events', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600))),
                       ],
@@ -849,7 +849,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.group_rounded, size: 20),
+                        Icon(Icons.groups_rounded, size: 20),
                         SizedBox(height: 2),
                         FittedBox(fit: BoxFit.scaleDown, child: Text('Clubs', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600))),
                       ],
