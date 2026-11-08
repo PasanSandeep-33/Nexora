@@ -63,3 +63,11 @@ staticfiles/
 __pycache__/
 **/__pycache__/
 *.pyc
+
+.env
+*.env
+club_event_backend/env
+
+.env
+*.env
+club_event_backend/env
