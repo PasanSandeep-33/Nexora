@@ -7,9 +7,8 @@ import 'auth_storage.dart';
 
 class ApiService {
   // static const String baseUrl = 'https://nexora-event-mgmt-api.onrender.com';
-  static const String baseUrl =
-    'https://nexora-event-mgmt-api.onrender.com';
-
+  static const String baseUrl ='https://nexora-event-mgmt-api.onrender.com';
+  //static const String baseUrl = 'http://127.0.0.1:8000';
   // Public API - Get approved events
   static Future<List<Event>> getEvents() async {
     final response = await http
@@ -104,44 +103,43 @@ class ApiService {
     throw Exception('Failed to load profile: ${response.statusCode}');
   }
 
-  
-static Future<bool> refreshSession() async {
-  final refreshToken = await AuthStorage.getRefreshToken();
+  static Future<bool> refreshSession() async {
+    final refreshToken = await AuthStorage.getRefreshToken();
 
-  if (refreshToken == null || refreshToken.isEmpty) {
-    return false;
+    if (refreshToken == null || refreshToken.isEmpty) {
+      return false;
+    }
+
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/api/token/refresh/'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'refresh_token': refreshToken}),
+        )
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode != 200) {
+      return false;
+    }
+
+    final data = jsonDecode(response.body);
+    final accessToken = data['access_token'];
+    final newRefreshToken = data['refresh_token'];
+
+    if (accessToken is! String ||
+        accessToken.isEmpty ||
+        newRefreshToken is! String ||
+        newRefreshToken.isEmpty) {
+      return false;
+    }
+
+    await AuthStorage.updateTokens(
+      accessToken: accessToken,
+      refreshToken: newRefreshToken,
+    );
+
+    return true;
   }
-
-  final response = await http
-      .post(
-        Uri.parse('$baseUrl/api/token/refresh/'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'refresh_token': refreshToken}),
-      )
-      .timeout(const Duration(seconds: 15));
-
-  if (response.statusCode != 200) {
-    return false;
-  }
-
-  final data = jsonDecode(response.body);
-  final accessToken = data['access_token'];
-  final newRefreshToken = data['refresh_token'];
-
-  if (accessToken is! String ||
-      accessToken.isEmpty ||
-      newRefreshToken is! String ||
-      newRefreshToken.isEmpty) {
-    return false;
-  }
-
-  await AuthStorage.updateTokens(
-    accessToken: accessToken,
-    refreshToken: newRefreshToken,
-  );
-
-  return true;
-}
 
   // Logout - Delete locally stored JWT token
   static Future<void> logout() async {
