@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/event_model.dart';
+import '../models/club_model.dart';
+import 'package:file_picker/file_picker.dart';
 import 'auth_storage.dart';
 
 class ApiService {
@@ -212,6 +214,92 @@ static Future<bool> refreshSession() async {
 
   return true;
 }
+
+
+  // Public API - Get clubs approved for public display.
+  static Future<List<Club>> getClubs() async {
+    final response = await http.get(Uri.parse('$baseUrl/api/clubs/'))
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load clubs (${response.statusCode}).');
+    }
+    final decoded = jsonDecode(response.body);
+    final List<dynamic> items = decoded is List
+        ? decoded
+        : (decoded is Map && decoded['results'] is List
+            ? decoded['results'] as List<dynamic>
+            : <dynamic>[]);
+    return items.whereType<Map>()
+        .map((item) => Club.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+
+  // Get the current student's President Application; 404 means none exists.
+  static Future<Map<String, dynamic>?> getMyPresidentApplication() async {
+    final token = await AuthStorage.getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Your session has expired. Please log in again.');
+    }
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/president-applications/me/'),
+      headers: {'Authorization': 'Bearer $token'},
+    ).timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 404) return null;
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      if (decoded is List && decoded.isNotEmpty && decoded.first is Map) {
+        return Map<String, dynamic>.from(decoded.first as Map);
+      }
+      return null;
+    }
+    throw Exception('Unable to load President Application (${response.statusCode}).');
+  }
+
+  // Submit President Application as multipart form data.
+  static Future<Map<String, dynamic>> submitPresidentApplication({
+    required String reason,
+    required PlatformFile supportingDocument,
+  }) async {
+    final token = await AuthStorage.getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Your session has expired. Please log in again.');
+    }
+    final bytes = await supportingDocument.readAsBytes();
+    if (bytes.isEmpty) {
+      throw Exception('Could not read the selected document. Please select it again.');
+    }
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/api/president-applications/'),
+    );
+    request.headers['Authorization'] = 'Bearer $token';
+    request.fields['reason'] = reason.trim();
+    request.files.add(http.MultipartFile.fromBytes(
+      'supporting_document',
+      bytes,
+      filename: supportingDocument.name,
+    ));
+
+    final streamed = await request.send().timeout(const Duration(seconds: 60));
+    final response = await http.Response.fromStream(streamed);
+    dynamic decoded;
+    try {
+      decoded = response.body.isEmpty ? <String, dynamic>{} : jsonDecode(response.body);
+    } catch (_) {
+      decoded = null;
+    }
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return decoded is Map ? Map<String, dynamic>.from(decoded) : {'status': 'pending'};
+    }
+    if (decoded is Map) {
+      final detail = decoded['detail'] ?? decoded['message'];
+      if (detail != null) throw Exception(detail.toString());
+      throw Exception(decoded.entries.map((e) => '${e.key}: ${e.value}').join('\n'));
+    }
+    throw Exception('President application failed (${response.statusCode}).');
+  }
 
   // Logout - Delete locally stored JWT token
   static Future<void> logout() async {

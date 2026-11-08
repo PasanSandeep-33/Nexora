@@ -356,18 +356,58 @@ class _AdminMfaScreenState extends State<AdminMfaScreen> {
                     const SizedBox(height: 18),
                     TextField(
                       controller: _codeController,
-                      keyboardType: _isRecoveryMode
-                          ? TextInputType.text
-                          : TextInputType.number,
-                      textCapitalization: TextCapitalization.characters,
-                      inputFormatters: _isRecoveryMode
-                          ? [FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]'))]
-                          : [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      textAlign: TextAlign.center,
+                      cursorColor: const Color(0xFF3478FF),
+
+                      style: const TextStyle(
+                        color: Color(0xFF101638),
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 12,
+                      ),
+
                       decoration: InputDecoration(
-                        labelText: _isRecoveryMode ? 'Recovery code' : '6-digit authenticator code',
-                        prefixIcon: const Icon(Icons.lock_outline),
+                        hintText: '000000',
+                        hintStyle: const TextStyle(
+                          color: Colors.black38,
+                          fontSize: 22,
+                          letterSpacing: 8,
+                        ),
+
+                        counterText: '',
+
+                        filled: true,
+                        fillColor: const Color(0xFFF4F6FA),
+
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 18,
+                          horizontal: 16,
+                        ),
+
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF3478FF),
+                            width: 1.5,
+                          ),
+                        ),
+
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF3478FF),
+                            width: 1.5,
+                          ),
+                        ),
+
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF3478FF),
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
