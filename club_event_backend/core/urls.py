@@ -1,6 +1,18 @@
 
 from django.urls import path
-from .views import event_list, signup, login, profile, upload_profile_image, refresh_token, logout
+from .views import (
+    event_list,
+    signup,
+    login,
+    profile,
+    upload_profile_image,
+    refresh_token,
+    logout,
+    admin_mfa_setup,
+    admin_mfa_verify_setup,
+    admin_mfa_verify_login,
+    admin_mfa_recovery,
+)
 from .club_registration_views import (
     submit_club_registration,
     list_club_registration_requests,
@@ -45,5 +57,27 @@ urlpatterns = [
     "admin/club-registrations/<int:registration_id>/document/",
     view_club_registration_document,
     name="view-club-registration-document",
+    ),
+    path(
+    "admin/mfa/setup/",
+    admin_mfa_setup,
+    name="admin-mfa-setup",
+    ),
+    path(
+        "admin/mfa/verify-setup/",
+        admin_mfa_verify_setup,
+        name="admin-mfa-verify-setup",
+    ),
+
+    path(
+        "admin/mfa/verify-login/",
+        admin_mfa_verify_login,
+        name="admin-mfa-verify-login",
+    ),
+
+    path(
+        "admin/mfa/recovery/",
+        admin_mfa_recovery,
+        name="admin-mfa-recovery",
     ),
 ]

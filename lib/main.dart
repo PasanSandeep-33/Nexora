@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'package:nexora/splash_screen.dart';
 
-import 'splash_screen.dart';
-
 void main() {
   runApp(const MyApp());
 }

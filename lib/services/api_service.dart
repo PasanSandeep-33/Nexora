@@ -78,6 +78,76 @@ class ApiService {
     }
   }
 
+
+  // Administrator MFA: begin first-time authenticator enrollment.
+  static Future<Map<String, dynamic>> adminMfaSetup({
+    required String challengeToken,
+  }) async {
+    return _mfaPost('/api/admin/mfa/setup/', {
+      'challenge_token': challengeToken,
+    });
+  }
+
+  // Administrator MFA: verify first-time enrollment.
+  static Future<Map<String, dynamic>> adminMfaVerifySetup({
+    required String enrollmentToken,
+    required String code,
+  }) async {
+    return _mfaPost('/api/admin/mfa/verify-setup/', {
+      'enrollment_token': enrollmentToken,
+      'code': code,
+    });
+  }
+
+  // Administrator MFA: verify an authenticator code during login.
+  static Future<Map<String, dynamic>> adminMfaVerifyLogin({
+    required String challengeToken,
+    required String code,
+  }) async {
+    return _mfaPost('/api/admin/mfa/verify-login/', {
+      'challenge_token': challengeToken,
+      'code': code,
+    });
+  }
+
+  // Administrator MFA: use a one-time recovery code instead of TOTP.
+  static Future<Map<String, dynamic>> adminMfaRecovery({
+    required String challengeToken,
+    required String recoveryCode,
+  }) async {
+    return _mfaPost('/api/admin/mfa/recovery/', {
+      'challenge_token': challengeToken,
+      'recovery_code': recoveryCode,
+    });
+  }
+
+  static Future<Map<String, dynamic>> _mfaPost(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl$path'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 20));
+
+    final dynamic decoded = response.body.isEmpty
+        ? <String, dynamic>{}
+        : jsonDecode(response.body);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (decoded is Map<String, dynamic>) return decoded;
+      throw Exception('Unexpected server response.');
+    }
+
+    final message = decoded is Map && decoded['message'] != null
+        ? decoded['message'].toString()
+        : 'MFA request failed (${response.statusCode}).';
+    throw Exception(message);
+  }
+
   // Protected API - Get logged-in user profile
   static Future<Map<String, dynamic>> getProfile() async {
     final token = await AuthStorage.getToken();

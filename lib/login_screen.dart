@@ -6,6 +6,7 @@ import 'signup_screen.dart';
 import 'services/api_service.dart';
 import 'screens/student_dashboard_screen.dart';
 import 'services/auth_storage.dart';
+import 'screens/admin_mfa_screen.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -70,6 +71,30 @@ class _LoginPageState extends State<LoginPage> {
         password: _passwordController.text,
       );
 
+      // Administrators must complete MFA before receiving/storing JWT tokens.
+      if (result['mfa_required'] == true) {
+        final challengeToken = result['challenge_token'];
+
+        if (challengeToken is! String || challengeToken.isEmpty) {
+          throw Exception('MFA challenge token missing');
+        }
+
+        if (!mounted) return;
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AdminMfaScreen(
+              challengeToken: challengeToken,
+              setupRequired: result['mfa_setup_required'] == true,
+              rememberMe: _rememberMe,
+            ),
+          ),
+        );
+        return;
+      }
+
+      // Student login keeps the existing direct-token flow.
       final accessToken = result['access_token'];
       final refreshToken = result['refresh_token'];
 
@@ -80,6 +105,18 @@ class _LoginPageState extends State<LoginPage> {
         throw Exception('JWT tokens missing');
       }
 
+      final user = result['user'];
+      if (user is! Map) {
+        throw Exception('User details missing from login response');
+      }
+
+      final loggedInUser = Map<String, dynamic>.from(user);
+      final role = loggedInUser['role']?.toString().toLowerCase();
+
+      if (role != 'student') {
+        throw Exception('Unexpected login response for role: $role');
+      }
+
       await AuthStorage.saveTokens(
         accessToken: accessToken,
         refreshToken: refreshToken,
@@ -88,35 +125,24 @@ class _LoginPageState extends State<LoginPage> {
 
       if (!mounted) return;
 
-      final user = result['user'];
+      _showMessage('Welcome ${loggedInUser['full_name'] ?? 'User'}!');
 
-if (user is! Map) {
-  throw Exception('User details missing from login response');
-}
-
-final loggedInUser = Map<String, dynamic>.from(user);
-
-if (!mounted) return;
-
-_showMessage(
-  'Welcome ${loggedInUser['full_name'] ?? 'Student'}!',
-);
-
-Navigator.pushReplacement(
-  context,
-  MaterialPageRoute(
-    builder: (context) => StudentDashboardScreen(
-      user: loggedInUser,
-    ),
-  ),
-);
-    } catch (error) {
-      debugPrint('Login error type: ${error.runtimeType}');
-      if (!mounted) return;
-
-      _showMessage(
-        'Unable to log in. Check your connection or try again.',
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => StudentDashboardScreen(user: loggedInUser),
+        ),
       );
+
+    } catch (error) {
+  debugPrint('LOGIN ERROR: $error');
+  debugPrint('ERROR TYPE: ${error.runtimeType}');
+
+  if (!mounted) return;
+
+  _showMessage(
+    'Unable to log in. Check your connection or try again.',
+  );
     } finally {
       if (mounted) {
         setState(() {
