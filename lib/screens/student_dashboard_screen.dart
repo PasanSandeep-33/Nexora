@@ -1205,14 +1205,80 @@ Future<void> _pickProfileImage(ImageSource source) async {
                       _tabController.animateTo(index);
                     },
                     onLogout: () async {
-                      await ApiService.logout();
-                      if (!mounted) return;
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const LoginPage(),
+                      final shouldLogout = await showDialog<bool>(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          backgroundColor: navyCard,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.1),
+                            ),
+                          ),
+                          title: const Text(
+                            'Confirm Logout',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          content: const Text(
+                            'Are you sure you want to log out of your student account?',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, false),
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                            ),
+                            ElevatedButton(
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, true),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.redAccent,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text('Log Out'),
+                            ),
+                          ],
                         ),
                       );
+
+                      if (shouldLogout != true || !mounted) return;
+
+                      try {
+                        await ApiService.logout();
+
+                        if (!mounted) return;
+
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(
+                            builder: (context) => const LoginPage(),
+                          ),
+                          (route) => false,
+                        );
+                      } catch (error) {
+                        debugPrint('Student logout error: $error');
+
+                        if (!mounted) return;
+
+                        _showFloatingSnackBar(
+                          message: 'Unable to log out. Please try again.',
+                          backgroundColor: Colors.redAccent,
+                          textColor: Colors.white,
+                          icon: Icons.error_outline,
+                        );
+                      }
                     },
                     onShowSnackBar: ({required String message}) {
                       _showFloatingSnackBar(

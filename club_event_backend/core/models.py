@@ -356,3 +356,43 @@ class AdminMFAChallenge(models.Model):
 
     def __str__(self):
         return f"MFA challenge: {self.user.email} ({self.purpose})"
+
+class PresidentApplication(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+    ]
+
+    applicant = models.ForeignKey(
+        Users,
+        on_delete=models.PROTECT,
+        related_name="president_applications",
+    )
+    reason = models.TextField()
+    proof_file_key = models.TextField()
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="pending",
+    )
+    reviewed_by = models.ForeignKey(
+        Users,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="reviewed_president_applications",
+    )
+    review_reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "president_applications"
+        indexes = [
+            models.Index(fields=["applicant", "status"]),
+            models.Index(fields=["status", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"President application: {self.applicant.email} ({self.status})"

@@ -20,6 +20,15 @@ from .club_registration_views import (
     reject_club_registration,
     view_club_registration_document,
 )
+from .president_application_views import (
+    submit_president_application,
+    my_president_application,
+    list_president_applications,
+    view_president_application_document,
+    approve_president_application,
+    reject_president_application,
+    public_club_list,
+)
 
 urlpatterns = [
     path("events/", event_list, name="event-list"),
@@ -80,4 +89,12 @@ urlpatterns = [
         admin_mfa_recovery,
         name="admin-mfa-recovery",
     ),
+    path("president-applications/", submit_president_application, name="president-application-submit"),
+    path("president-applications/me/", my_president_application, name="president-application-me"),
+    path("admin/president-applications/", list_president_applications, name="admin-president-application-list"),
+    path("admin/president-applications/<int:application_id>/document/", view_president_application_document, name="admin-president-application-document"),
+    path("admin/president-applications/<int:application_id>/approve/", approve_president_application, name="admin-president-application-approve"),
+    path("admin/president-applications/<int:application_id>/reject/", reject_president_application, name="admin-president-application-reject"),
+    path("clubs/", public_club_list, name="club-list"),
+
 ]

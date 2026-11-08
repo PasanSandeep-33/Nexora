@@ -4,12 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../login_screen.dart';
+import '../services/api_service.dart';
+
+
 void main() {
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -599,6 +605,80 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         ],
       ),
     );
+  }
+
+  Future<void> _logout() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          'Confirm Logout',
+          style: TextStyle(
+            color: navy,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: const Text(
+          'Are you sure you want to log out of your administrator account?',
+          style: TextStyle(color: kTextGrey, fontSize: 13.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: kTextGrey),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text(
+              'Log Out',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout != true || !mounted) return;
+
+    try {
+      // Clear locally stored authentication tokens.
+      await ApiService.logout();
+
+      if (!mounted) return;
+
+      // Remove the dashboard and all previous routes from the navigation stack.
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => const LoginPage(),
+        ),
+        (route) => false,
+      );
+    } catch (error) {
+      debugPrint('Logout error: $error');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to log out. Please try again.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
@@ -1520,9 +1600,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         _profileActionTile(Icons.privacy_tip_outlined, 'Privacy & Policies', () {
           _showProfileInfoDialog('Privacy & Policies', 'NEXORA data privacy compliance v2.4: All student credentials and logs are strictly protected under university data governance policies.');
         }),
-        _profileActionTile(Icons.logout_rounded, 'Log Out', () {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Logged out successfully.'), duration: Duration(seconds: 2)));
-        }, isDestructive: true),
+        _profileActionTile(
+          Icons.logout_rounded,
+          'Log Out',
+          _logout,
+          isDestructive: true,
+        ),
       ],
     );
   }
