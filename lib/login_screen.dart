@@ -193,7 +193,7 @@ class _LoginPageState extends State<LoginPage> {
       final loggedInUser = Map<String, dynamic>.from(user);
       final role = loggedInUser['role']?.toString().toLowerCase();
 
-      if (role != 'student' && role != 'president') {
+      if (role != 'student' && role != 'club_admin') {
         throw Exception('Unexpected login response for role: $role');
       }
 
@@ -211,7 +211,7 @@ class _LoginPageState extends State<LoginPage> {
         context,
         MaterialPageRoute(
           builder: (_) => role == 'club_admin'
-              ? const PresidentDashboard()
+              ? PresidentDashboard(user: loggedInUser)
               : StudentDashboardScreen(user: loggedInUser),
         ),
       );
