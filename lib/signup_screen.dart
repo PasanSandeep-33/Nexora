@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -22,6 +24,8 @@ class _SignupPageState extends State<SignupPage> {
   bool _hidePassword = true;
   bool _hideConfirmPassword = true;
   bool _isLoading = false;
+  String? _signupErrorMessage;
+  Timer? _signupErrorTimer;
 
   static const Color navy = Color(0xFF050B25);
   static const Color blue = Color(0xFF3478FF);
@@ -43,6 +47,7 @@ class _SignupPageState extends State<SignupPage> {
 
   @override
   void dispose() {
+    _signupErrorTimer?.cancel();
     _fullNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -55,7 +60,81 @@ class _SignupPageState extends State<SignupPage> {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _showSignupError(String message) {
+    _signupErrorTimer?.cancel();
+    setState(() => _signupErrorMessage = message);
+    _signupErrorTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _signupErrorMessage = null);
+    });
+  }
+
+  Widget _buildSignupErrorPopup() {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 280),
+      reverseDuration: const Duration(milliseconds: 220),
+      transitionBuilder: (child, animation) {
+        final curvedAnimation = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curvedAnimation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.92, end: 1).animate(curvedAnimation),
+            child: child,
+          ),
+        );
+      },
+      child: _signupErrorMessage == null
+          ? const SizedBox(key: ValueKey('no-signup-error'))
+          : ConstrainedBox(
+              key: const ValueKey('signup-error'),
+              constraints: const BoxConstraints(maxWidth: 300),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.82),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x33000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline_rounded,
+                      color: Colors.redAccent,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        _signupErrorMessage!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFFD32F2F),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+
   Future<void> _signUp() async {
+    FocusScope.of(context).unfocus();
+
     if (_isLoading || !_formKey.currentState!.validate()) {
       return;
     }
@@ -86,7 +165,9 @@ class _SignupPageState extends State<SignupPage> {
       
       if (!mounted) return;
 
-      _showMessage('Signup failed: $error');
+      _showSignupError(
+        error.toString().replaceFirst('Exception: ', ''),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -175,6 +256,8 @@ class _SignupPageState extends State<SignupPage> {
     final screenSize = MediaQuery.sizeOf(context);
     final screenWidth = screenSize.width;
     final screenHeight = screenSize.height;
+    final isKeyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final normalViewportHeight = screenHeight - MediaQuery.paddingOf(context).vertical;
 
     final isSmallScreen = screenWidth < 360;
 
@@ -190,14 +273,10 @@ class _SignupPageState extends State<SignupPage> {
       backgroundColor: const Color(0xFF030620),
       resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(context).bottom > 0 ? 20 : 0,
-          ),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
+        child: Builder(
+          builder: (context) {
+            final formContent = SizedBox(
+              width: screenWidth.clamp(0.0, 480.0).toDouble(),
               child: Column(
                 children: [
                   // NEXORA LOGO BACKGROUND
@@ -400,9 +479,14 @@ class _SignupPageState extends State<SignupPage> {
                             const SizedBox(height: 20),
 
                             // SIGN UP BUTTON
-                            SizedBox(
-                              height: 54,
-                              child: DecoratedBox(
+                            Stack(
+                              clipBehavior: Clip.none,
+                              alignment: Alignment.center,
+                              children: [
+                                SizedBox(
+                                  height: 54,
+                                  width: double.infinity,
+                                  child: DecoratedBox(
                                 decoration: BoxDecoration(
                                   gradient: const LinearGradient(
                                     colors: [purple, blue, cyan],
@@ -439,7 +523,13 @@ class _SignupPageState extends State<SignupPage> {
                                           ),
                                         ),
                                 ),
-                              ),
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: 64,
+                                  child: _buildSignupErrorPopup(),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -450,8 +540,34 @@ class _SignupPageState extends State<SignupPage> {
                   const SizedBox(height: 16),
                 ],
               ),
-            ),
-          ),
+            );
+
+            if (!isKeyboardVisible) {
+              return SizedBox.expand(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.topCenter,
+                  child: formContent,
+                ),
+              );
+            }
+
+            return SingleChildScrollView(
+              keyboardDismissBehavior:
+                  ScrollViewKeyboardDismissBehavior.onDrag,
+              physics: const ClampingScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 20),
+              child: SizedBox(
+                height: normalViewportHeight,
+                width: screenWidth,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.topCenter,
+                  child: formContent,
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

@@ -101,20 +101,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
       ),
     ];
 
-    _myRsvps = [
-      RsvpItem(
-        rsvpId: 501,
-        status: 'confirmed',
-        registeredAt: DateTime.now().subtract(const Duration(days: 1)),
-        event: _events[0],
-        ticket: Ticket(
-          ticketId: 701,
-          qrCode: 'NEXORA-PASS-101-AC88',
-          issuedAt: DateTime.now().subtract(const Duration(days: 1)),
-          isCheckedIn: false,
-        ),
-      ),
-    ];
+    // A student starts with no passes. RSVPs are added only after the student
+    // explicitly confirms one from the Explore tab.
+    _myRsvps = [];
   }
 
   @override
@@ -165,7 +154,7 @@ String get _userEmail {
   Map<String, dynamic> get _stats => {
     'total_rsvps': _myRsvps.length,
     'upcoming_events': _myRsvps.length,
-    'attended_events': _checkedInRsvpIds.length + 1,
+    'attended_events': _checkedInRsvpIds.length,
     'clubs_joined': _clubs.where((c) => c.isJoined).length,
   };
 

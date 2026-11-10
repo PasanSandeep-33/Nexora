@@ -6,5 +6,6 @@
             "packageManager": "ms-python.python:pip"
         }
     ],
-    "python.terminal.useEnvFile": true
+    "python.terminal.useEnvFile": true,
+    "cmake.sourceDirectory": "D:/nexora/linux"
 }

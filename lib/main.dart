@@ -16,6 +16,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Nexora',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const _NoElasticScrollBehavior(),
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF030620),
@@ -30,5 +31,23 @@ class MyApp extends StatelessWidget {
       ),
       home: SplashScreen(),
     );
+  }
+}
+
+class _NoElasticScrollBehavior extends MaterialScrollBehavior {
+  const _NoElasticScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
+  }
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    return const ClampingScrollPhysics();
   }
 }
