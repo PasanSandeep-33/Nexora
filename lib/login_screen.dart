@@ -97,7 +97,7 @@ class _LoginPageState extends State<LoginPage> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.82),
+                  color: Colors.white.withValues(alpha: 0.82),
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: const [
                     BoxShadow(
@@ -193,7 +193,7 @@ class _LoginPageState extends State<LoginPage> {
       final loggedInUser = Map<String, dynamic>.from(user);
       final role = loggedInUser['role']?.toString().toLowerCase();
 
-      if (role != 'student' && role != 'club_admin') {
+      if (role != 'student' && role != 'admin' && role != 'club_admin') {
         throw Exception('Unexpected login response for role: $role');
       }
 
@@ -827,7 +827,7 @@ class _LoginPageState extends State<LoginPage> {
                                                     ),
                                                     decoration: BoxDecoration(
                                                       color: Colors.white
-                                                          .withOpacity(0.82),
+                                                          .withValues(alpha: 0.82),
                                                       borderRadius:
                                                           BorderRadius.circular(
                                                         14,
