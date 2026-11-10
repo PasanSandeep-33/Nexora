@@ -190,7 +190,7 @@ def approve_president_application(request, application_id):
                 joined_at=timezone.now(),
             )
 
-# Change the approved student's account role to President
+            # Change the approved student's account role to President
             application.applicant.role = "president"
             application.applicant.save(update_fields=["role"])
 
@@ -204,6 +204,16 @@ def approve_president_application(request, application_id):
         return Response(PresidentApplicationReadSerializer(application).data, status=200)
     except PresidentApplication.DoesNotExist:
         return Response({"detail": "President application not found."}, status=404)
+    
+    except Exception:
+        logger.exception(
+            "Failed to approve President application %s",
+            application_id,
+        )
+        return Response(
+            {"detail": "Unable to approve President application."},
+            status=500,
+        )
 
 
 @api_view(["POST"])
