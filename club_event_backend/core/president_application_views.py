@@ -184,9 +184,16 @@ def approve_president_application(request, application_id):
                 user=application.applicant,
             )
             ClubMemberships.objects.create(
-                club=club, user=application.applicant,
-                member_role="president", joined_at=timezone.now(),
+                club=club,
+                user=application.applicant,
+                member_role="president",
+                joined_at=timezone.now(),
             )
+
+# Change the approved student's account role to President
+            application.applicant.role = "president"
+            application.applicant.save(update_fields=["role"])
+
             application.approved_club = club
             application.status = "approved"
             application.reviewed_by = Users.objects.get(user_id=request.user.user_id)
