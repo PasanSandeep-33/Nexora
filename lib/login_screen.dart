@@ -210,7 +210,7 @@ class _LoginPageState extends State<LoginPage> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => role == 'president'
+          builder: (_) => role == 'club_admin'
               ? const PresidentDashboard()
               : StudentDashboardScreen(user: loggedInUser),
         ),

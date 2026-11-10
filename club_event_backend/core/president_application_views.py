@@ -191,7 +191,7 @@ def approve_president_application(request, application_id):
             )
 
             # Change the approved student's account role to President
-            application.applicant.role = "president"
+            application.applicant.role = "club_admin"
             application.applicant.save(update_fields=["role"])
 
             application.approved_club = club
