@@ -598,7 +598,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: kBlue.withOpacity(0.1),
+                  color: kBlue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(Icons.photo_library_rounded, color: kBlue),
@@ -627,7 +627,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: kPurple.withOpacity(0.1),
+                  color: kPurple.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(Icons.camera_alt_rounded, color: kPurple),
@@ -657,7 +657,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.redAccent.withOpacity(0.1),
+                    color: Colors.redAccent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
@@ -941,9 +941,9 @@ class _PresidentDashboardState extends State<PresidentDashboard>
               margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: kCyan.withOpacity(0.35)),
+                border: Border.all(color: kCyan.withValues(alpha: 0.35)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1311,7 +1311,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
+                  color: Colors.black.withValues(alpha: 0.06),
                   blurRadius: 10,
                   offset: const Offset(0, 3),
                 ),
@@ -1695,7 +1695,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
             border: Border.all(color: const Color(0xFFE2E8F0)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.08),
+                color: Colors.black.withValues(alpha: 0.08),
                 blurRadius: 20,
                 offset: const Offset(0, 6),
               ),
@@ -1754,7 +1754,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                 decoration: BoxDecoration(
                   color: const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: kBlue.withOpacity(0.3)),
+                  border: Border.all(color: kBlue.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   'President ID: $presidentId',
@@ -1851,7 +1851,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
           border: Border.all(color: const Color(0xFFE2E8F0)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
@@ -1897,7 +1897,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

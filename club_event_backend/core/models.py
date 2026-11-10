@@ -276,3 +276,123 @@ class PresidencyTransfer(models.Model):
                 name="presidency_transfer_different_users",
             ),
         ]
+
+class AdminMFADevice(models.Model):
+    user = models.OneToOneField(
+        Users,
+        on_delete=models.CASCADE,
+        related_name="mfa_device",
+    )
+
+    # Encrypted active authenticator secret
+    secret_encrypted = models.TextField(
+        null=True,
+        blank=True,
+    )
+
+    # Temporary secret used during enrollment
+    pending_secret_encrypted = models.TextField(
+        null=True,
+        blank=True,
+    )
+
+    is_enabled = models.BooleanField(default=False)
+
+    # Stores hashes of unused recovery codes, never plaintext codes
+    recovery_codes = models.JSONField(default=list)
+
+    # Prevents reuse of an already accepted TOTP time step
+    last_verified_step = models.BigIntegerField(
+        null=True,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "admin_mfa_devices"
+
+    def __str__(self):
+        return f"Admin MFA: {self.user.email}"
+
+
+class AdminMFAChallenge(models.Model):
+    user = models.ForeignKey(
+        Users,
+        on_delete=models.CASCADE,
+        related_name="mfa_challenges",
+    )
+
+    # SHA-256 hash of the challenge JWT's jti
+    jti_hash = models.CharField(
+        max_length=64,
+        unique=True,
+    )
+
+    purpose = models.CharField(
+        max_length=20,
+    )
+
+    expires_at = models.DateTimeField()
+
+    consumed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    class Meta:
+        db_table = "admin_mfa_challenges"
+        indexes = [
+            models.Index(
+                fields=["user", "purpose"],
+                name="mfa_challenge_user_purpose_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"MFA challenge: {self.user.email} ({self.purpose})"
+
+class PresidentApplication(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+    ]
+
+    applicant = models.ForeignKey(
+        Users,
+        on_delete=models.PROTECT,
+        related_name="president_applications",
+    )
+    reason = models.TextField()
+    proof_file_key = models.TextField()
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="pending",
+    )
+    reviewed_by = models.ForeignKey(
+        Users,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="reviewed_president_applications",
+    )
+    review_reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "president_applications"
+        indexes = [
+            models.Index(fields=["applicant", "status"]),
+            models.Index(fields=["status", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"President application: {self.applicant.email} ({self.status})"

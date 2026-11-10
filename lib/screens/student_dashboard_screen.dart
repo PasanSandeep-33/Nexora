@@ -256,7 +256,7 @@ String get _userEmail {
         backgroundColor: navyCard,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: Colors.white.withOpacity(0.1)),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
         title: const Text(
           'Cancel RSVP?',
@@ -439,7 +439,7 @@ Future<void> _pickProfileImage(ImageSource source) async {
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: blue.withOpacity(0.1),
+                  color: blue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(Icons.photo_library_rounded, color: blue),
@@ -468,7 +468,7 @@ Future<void> _pickProfileImage(ImageSource source) async {
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: purple.withOpacity(0.1),
+                  color: purple.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(Icons.camera_alt_rounded, color: purple),
@@ -842,10 +842,10 @@ Future<void> _pickProfileImage(ImageSource source) async {
             decoration: BoxDecoration(
               color: navy,
               borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: cyan.withOpacity(0.35), width: 1.5),
+              border: Border.all(color: cyan.withValues(alpha: 0.35), width: 1.5),
               boxShadow: [
                 BoxShadow(
-                  color: blue.withOpacity(0.25),
+                  color: blue.withValues(alpha: 0.25),
                   blurRadius: 30,
                   offset: const Offset(0, 10),
                 ),
@@ -877,10 +877,10 @@ Future<void> _pickProfileImage(ImageSource source) async {
                                 vertical: 3,
                               ),
                               decoration: BoxDecoration(
-                                color: cyan.withOpacity(0.15),
+                                color: cyan.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: cyan.withOpacity(0.3),
+                                  color: cyan.withValues(alpha: 0.3),
                                 ),
                               ),
                               child: const Text(
@@ -924,8 +924,8 @@ Future<void> _pickProfileImage(ImageSource source) async {
                         ),
                         decoration: BoxDecoration(
                           color: isCheckedIn
-                              ? blue.withOpacity(0.2)
-                              : const Color(0xFF10B981).withOpacity(0.2),
+                              ? blue.withValues(alpha: 0.2)
+                              : const Color(0xFF10B981).withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: isCheckedIn ? blue : const Color(0xFF10B981),
@@ -951,7 +951,7 @@ Future<void> _pickProfileImage(ImageSource source) async {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.25),
+                          color: Colors.black.withValues(alpha: 0.25),
                           blurRadius: 15,
                         ),
                       ],
@@ -982,7 +982,7 @@ Future<void> _pickProfileImage(ImageSource source) async {
                     decoration: BoxDecoration(
                       color: navyCard,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.white.withOpacity(0.08)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1194,14 +1194,80 @@ Future<void> _pickProfileImage(ImageSource source) async {
                       _tabController.animateTo(index);
                     },
                     onLogout: () async {
-                      await ApiService.logout();
-                      if (!mounted) return;
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const LoginPage(),
+                      final shouldLogout = await showDialog<bool>(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          backgroundColor: navyCard,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.1),
+                            ),
+                          ),
+                          title: const Text(
+                            'Confirm Logout',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          content: const Text(
+                            'Are you sure you want to log out of your student account?',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, false),
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                            ),
+                            ElevatedButton(
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, true),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.redAccent,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text('Log Out'),
+                            ),
+                          ],
                         ),
                       );
+
+                      if (shouldLogout != true || !mounted) return;
+
+                      try {
+                        await ApiService.logout();
+
+                        if (!mounted) return;
+
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(
+                            builder: (context) => const LoginPage(),
+                          ),
+                          (route) => false,
+                        );
+                      } catch (error) {
+                        debugPrint('Student logout error: $error');
+
+                        if (!mounted) return;
+
+                        _showFloatingSnackBar(
+                          message: 'Unable to log out. Please try again.',
+                          backgroundColor: Colors.redAccent,
+                          textColor: Colors.white,
+                          icon: Icons.error_outline,
+                        );
+                      }
                     },
                     onShowSnackBar: ({required String message}) {
                       _showFloatingSnackBar(
@@ -1237,13 +1303,13 @@ Future<void> _pickProfileImage(ImageSource source) async {
                   height: 38,
                   width: 38,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
+                  errorBuilder: (_, _, _) => Container(
                     height: 38,
                     width: 38,
                     decoration: BoxDecoration(
                       color: navyCard,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: cyan.withOpacity(0.5)),
+                      border: Border.all(color: cyan.withValues(alpha: 0.5)),
                     ),
                     child: const Icon(Icons.school, color: cyan, size: 22),
                   ),
@@ -1298,7 +1364,7 @@ Future<void> _pickProfileImage(ImageSource source) async {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
+                      color: Colors.black.withValues(alpha: 0.12),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -1336,9 +1402,9 @@ Future<void> _pickProfileImage(ImageSource source) async {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
+                    color: Colors.white.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: cyan.withOpacity(0.35)),
+                    border: Border.all(color: cyan.withValues(alpha: 0.35)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1450,7 +1516,7 @@ Future<void> _pickProfileImage(ImageSource source) async {
       decoration: BoxDecoration(
         color: navy,
         border: Border(
-          bottom: BorderSide(color: Colors.white.withOpacity(0.08), width: 1),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08), width: 1),
         ),
       ),
       child: TabBar(

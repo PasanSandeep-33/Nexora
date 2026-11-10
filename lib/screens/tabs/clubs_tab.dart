@@ -6,8 +6,9 @@ import 'package:http/http.dart' as http;
 
 import '../../models/club_model.dart';
 import '../../services/auth_storage.dart';
+import '../../services/api_service.dart';
 
-class ClubsTab extends StatelessWidget {
+class ClubsTab extends StatefulWidget {
   final List<Club> clubs;
   final bool isLoading;
   final Future<void> Function() onRefresh;
@@ -21,112 +22,208 @@ class ClubsTab extends StatelessWidget {
     required this.onToggleJoinClub,
   });
 
-  static const Color navy = Color(0xFF050B25);
+  @override
+  State<ClubsTab> createState() => _ClubsTabState();
+}
+
+class _ClubsTabState extends State<ClubsTab> {
   static const Color navyCard = Color(0xFF0F1A4E);
   static const Color blue = Color(0xFF3478FF);
   static const Color cyan = Color(0xFF19D9ED);
 
+  List<Club> _clubs = [];
+  Map<String, dynamic>? _application;
+  bool _loading = true;
+  String? _error;
+
+  String get _status => (_application?['status'] ?? '').toString().toLowerCase();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    if (mounted) setState(() { _loading = true; _error = null; });
+    try {
+      final clubs = await ApiService.getClubs();
+      final application = await ApiService.getMyPresidentApplication();
+      if (!mounted) return;
+      setState(() {
+        _clubs = clubs;
+        _application = application;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _clubs = widget.clubs;
+        _error = error.toString().replaceFirst('Exception: ', '');
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _openApplication() async {
+    final submitted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const PresidentApplicationPage()),
+    );
+    if (submitted == true && mounted) await _loadData();
+  }
+
+  Future<void> _openClubRegistration() async {
+    final submitted = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const ClubRegistrationPage()),
+    );
+    if (submitted == true && mounted) await _loadData();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final status = _status;
     return RefreshIndicator(
-      onRefresh: onRefresh,
+      onRefresh: () async {
+        await _loadData();
+        await widget.onRefresh();
+      },
       color: cyan,
       backgroundColor: navyCard,
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         children: [
-          const Text(
-            'Campus Clubs & Societies',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          const Text('Campus Clubs & Societies',
+              style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          const Text(
-            'Join official societies to receive private meetups and notifications.',
-            style: TextStyle(color: Colors.white54, fontSize: 12),
-          ),
+          const Text('Join official societies to receive private meetups and notifications.',
+              style: TextStyle(color: Colors.white54, fontSize: 12)),
           const SizedBox(height: 14),
-          _registerClubButton(context),
-          const SizedBox(height: 14),
-          if (isLoading && clubs.isEmpty)
+          if (_loading && _clubs.isEmpty)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 36),
-              child: Center(
-                child: CircularProgressIndicator(color: cyan),
-              ),
+              padding: EdgeInsets.all(18),
+              child: Center(child: CircularProgressIndicator(color: cyan)),
             )
-          else if (clubs.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 30),
-              child: Center(
-                child: Text(
-                  'No clubs are available yet.',
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-              ),
+          else if (status == 'approved')
+            _actionCard(
+              icon: Icons.add_business_rounded,
+              title: 'Register a New Club',
+              subtitle: 'Your President Application is approved. Submit a club for administrator review.',
+              action: 'Register Club',
+              color: cyan,
+              onTap: _openClubRegistration,
+            )
+          else if (status == 'pending')
+            _statusCard(
+              title: 'President Application Pending',
+              message: 'Your application is waiting for administrator review. Club registration becomes available after approval.',
+              icon: Icons.hourglass_top_rounded,
+              color: Colors.orangeAccent,
+            )
+          else if (status == 'rejected')
+            _statusCard(
+              title: 'President Application Rejected',
+              message: (_application?['review_reason'] ?? 'Your application was not approved.').toString(),
+              icon: Icons.cancel_outlined,
+              color: Colors.redAccent,
             )
           else
-            ...clubs.map(_buildClubCard),
+            _actionCard(
+              icon: Icons.workspace_premium_outlined,
+              title: 'Become a Club President',
+              subtitle: 'Apply to become a Club President. Administrator approval is required before registering a club.',
+              action: 'Apply Now',
+              color: cyan,
+              onTap: _openApplication,
+            ),
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text('Could not refresh club information: $_error',
+                style: const TextStyle(color: Colors.orangeAccent, fontSize: 11)),
+            TextButton.icon(
+              onPressed: _loadData,
+              icon: const Icon(Icons.refresh, color: cyan),
+              label: const Text('Retry', style: TextStyle(color: cyan)),
+            ),
+          ],
+          const SizedBox(height: 14),
+          if (!_loading && _clubs.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 30),
+              child: Center(child: Text('No approved clubs are available yet.',
+                  style: TextStyle(color: Colors.white70, fontSize: 13))),
+            ),
+          ..._clubs.map(_buildClubCard),
         ],
       ),
     );
   }
 
-  Widget _registerClubButton(BuildContext context) {
+  Widget _actionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required String action,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return Material(
-      color: Colors.transparent,
+      color: const Color(0xFF102451),
+      borderRadius: BorderRadius.circular(15),
       child: InkWell(
         borderRadius: BorderRadius.circular(15),
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const ClubRegistrationPage(),
-            ),
-          );
-        },
-        child: Ink(
+        onTap: onTap,
+        child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFF102451),
             borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: cyan.withValues(alpha: 0.75)),
+            border: Border.all(color: color.withValues(alpha: 0.65)),
           ),
-          child: const Row(
-            children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: Color(0xFF203D78),
-                child: Icon(Icons.add_business_rounded, color: cyan, size: 20),
-              ),
-              SizedBox(width: 11),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Register a New Club',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                    SizedBox(height: 3),
-                    Text(
-                      'Apply to establish and manage a university club.',
-                      style: TextStyle(color: Colors.white70, fontSize: 10.5),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.arrow_forward_ios, color: cyan, size: 15),
-            ],
-          ),
+          child: Row(children: [
+            CircleAvatar(
+              radius: 19,
+              backgroundColor: const Color(0xFF203D78),
+              child: Icon(icon, color: color, size: 21),
+            ),
+            const SizedBox(width: 11),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 4),
+                Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 10.5, height: 1.35)),
+                const SizedBox(height: 7),
+                Text(action, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11)),
+              ],
+            )),
+            Icon(Icons.arrow_forward_ios, color: color, size: 15),
+          ]),
         ),
       ),
+    );
+  }
+
+  Widget _statusCard({
+    required String title,
+    required String message,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF102451),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: color.withValues(alpha: 0.6)),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, color: color, size: 23),
+        const SizedBox(width: 11),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 4),
+          Text(message, style: const TextStyle(color: Colors.white70, fontSize: 11, height: 1.4)),
+        ])),
+      ]),
     );
   }
 
@@ -139,60 +236,198 @@ class ClubsTab extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  club.name,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${club.memberCount} members',
-                style: const TextStyle(
-                  color: Color(0xFF059669),
-                  fontSize: 11,
-                ),
-              ),
-            ],
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Expanded(child: Text(club.name,
+              style: const TextStyle(color: Colors.black, fontSize: 15, fontWeight: FontWeight.bold))),
+          const SizedBox(width: 8),
+          Text('${club.memberCount} members',
+              style: const TextStyle(color: Color(0xFF059669), fontSize: 11)),
+        ]),
+        const SizedBox(height: 6),
+        Text(club.description, style: const TextStyle(color: Colors.black, fontSize: 12)),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerRight,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: club.isJoined ? navyCard : blue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => widget.onToggleJoinClub(club),
+            child: Text(club.isJoined ? 'Joined ✓' : 'Join Club +',
+                style: TextStyle(color: club.isJoined ? Colors.white70 : Colors.white,
+                    fontWeight: FontWeight.bold, fontSize: 12)),
           ),
-          const SizedBox(height: 6),
-          Text(
-            club.description,
-            style: const TextStyle(color: Colors.black, fontSize: 12),
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: club.isJoined ? navyCard : blue,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: () => onToggleJoinClub(club),
-              child: Text(
-                club.isJoined ? 'Joined ✓' : 'Join Club +',
-                style: TextStyle(
-                  color: club.isJoined ? Colors.white70 : Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
+        ),
+      ]),
+    );
+  }
+}
+
+class PresidentApplicationPage extends StatefulWidget {
+  const PresidentApplicationPage({super.key});
+
+  @override
+  State<PresidentApplicationPage> createState() => _PresidentApplicationPageState();
+}
+
+class _PresidentApplicationPageState extends State<PresidentApplicationPage> {
+  static const Color navy = Color(0xFF050B25);
+  static const Color navyCard = Color(0xFF0F1A4E);
+  static const Color cyan = Color(0xFF19D9ED);
+  final _formKey = GlobalKey<FormState>();
+  final _reasonController = TextEditingController();
+  PlatformFile? _document;
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDocument() async {
+    try {
+      final file = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png'],
+      );
+      if (file == null || !mounted) return;
+      final fileSize = await file.length();
+      if (fileSize == null || fileSize <= 0 || fileSize > 5 * 1024 * 1024) {
+        _showMessage('Choose a readable PDF or image no larger than 5 MB.');
+        return;
+      }
+      setState(() => _document = file);
+    } catch (error) {
+      _showMessage('Unable to select document: $error');
+    }
+  }
+
+  Future<void> _submit() async {
+    if (_submitting || !_formKey.currentState!.validate()) return;
+    if (_document == null) {
+      _showMessage('Please attach your supporting document.');
+      return;
+    }
+    setState(() => _submitting = true);
+    try {
+      await ApiService.submitPresidentApplication(
+        reason: _reasonController.text,
+        supportingDocument: _document!,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('President Application submitted successfully.'),
+        backgroundColor: Color(0xFF059669),
+      ));
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      _showMessage(error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: Colors.redAccent,
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: navy,
+      appBar: AppBar(
+        backgroundColor: navy,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text('President Application'),
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(padding: const EdgeInsets.all(18), children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF102451),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: cyan.withValues(alpha: 0.45)),
+            ),
+            child: const Text(
+              'Apply to become a Club President. Your application and supporting document will be reviewed by a Nexora administrator. You can register a club only after approval.',
+              style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.45),
             ),
           ),
-        ],
+          const SizedBox(height: 20),
+          const Text('Why do you want to become a Club President?',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _reasonController,
+            minLines: 4,
+            maxLines: 6,
+            maxLength: 2000,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Explain your experience, motivation and plans...',
+              hintStyle: const TextStyle(color: Colors.white54),
+              filled: true,
+              fillColor: navyCard,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Colors.white24),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: cyan, width: 1.5),
+              ),
+            ),
+            validator: (value) => value == null || value.trim().isEmpty
+                ? 'Please provide an application reason.'
+                : null,
+          ),
+          const SizedBox(height: 14),
+          const Text('Supporting document',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 5),
+          const Text('PDF, JPG or PNG • Maximum 5 MB',
+              style: TextStyle(color: Colors.white60, fontSize: 11)),
+          const SizedBox(height: 9),
+          OutlinedButton.icon(
+            onPressed: _submitting ? null : _pickDocument,
+            icon: const Icon(Icons.upload_file_rounded),
+            label: Text(_document?.name ?? 'Choose supporting document',
+                overflow: TextOverflow.ellipsis),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: cyan,
+              side: const BorderSide(color: cyan),
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 50,
+            child: ElevatedButton(
+              onPressed: _submitting ? null : _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF3478FF),
+                foregroundColor: Colors.white,
+              ),
+              child: _submitting
+                  ? const SizedBox(width: 22, height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Submit Application', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ]),
       ),
     );
   }
@@ -209,8 +444,7 @@ class _ClubRegistrationPageState extends State<ClubRegistrationPage> {
   static const Color navy = Color(0xFF050B25);
   static const Color blue = Color(0xFF3478FF);
   static const Color cyan = Color(0xFF19D9ED);
-  static const String _baseUrl =
-      'https://nexora-event-mgmt-api.onrender.com';
+  static const String _baseUrl = ApiService.baseUrl;
 
   final _formKey = GlobalKey<FormState>();
   final _clubNameController = TextEditingController();
@@ -236,62 +470,25 @@ class _ClubRegistrationPageState extends State<ClubRegistrationPage> {
     _descriptionController.dispose();
     super.dispose();
   }
-
-  
-Future<void> _chooseAppointmentLetter() async {
-  try {
-    final file = await FilePicker.pickFile(
-      type: FileType.custom,
-      allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png'],
-    );
-
-    if (file == null || !mounted) return;
-
-    // Check file size (maximum 5 MB).
-    final fileSize = file.lengthSync() ?? await file.length();
-
-    if (!mounted) return;
-
-    if (fileSize == null) {
-      _showMessage(
-        'Could not determine file size. Please try again.',
-        isError: true,
+  Future<void> _chooseAppointmentLetter() async {
+    try {
+      final file = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png'],
       );
-      return;
+      if (file == null || !mounted) return;
+      final fileSize = await file.length();
+      if (fileSize == null || fileSize <= 0 || fileSize > 5 * 1024 * 1024) {
+        _showMessage('Choose a readable PDF or image no larger than 5 MB.', isError: true);
+        return;
+      }
+      setState(() => _appointmentLetter = file);
+    } catch (error) {
+      if (mounted) _showMessage('Unable to select the file: $error', isError: true);
     }
-
-    if (fileSize == 0) {
-      _showMessage(
-        'The selected file is empty.',
-        isError: true,
-      );
-      return;
-    }
-
-    if (fileSize > 5 * 1024 * 1024) {
-      _showMessage(
-        'The appointment letter must be 5 MB or smaller.',
-        isError: true,
-      );
-      return;
-    }
-
-    setState(() {
-      _appointmentLetter = file;
-    });
-
-  } catch (error) {
-    if (!mounted) return;
-
-    _showMessage(
-      'Unable to select the file: $error',
-      isError: true,
-    );
   }
-}
 
-
-  Future<void> _submitRegistration() async {
+Future<void> _submitRegistration() async {
     if (_isSubmitting) return;
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCategory == null) {

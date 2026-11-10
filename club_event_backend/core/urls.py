@@ -1,12 +1,33 @@
 
 from django.urls import path
-from .views import event_list, signup, login, profile, upload_profile_image, refresh_token, logout
+from .views import (
+    event_list,
+    signup,
+    login,
+    profile,
+    upload_profile_image,
+    refresh_token,
+    logout,
+    admin_mfa_setup,
+    admin_mfa_verify_setup,
+    admin_mfa_verify_login,
+    admin_mfa_recovery,
+)
 from .club_registration_views import (
     submit_club_registration,
     list_club_registration_requests,
     approve_club_registration,
     reject_club_registration,
     view_club_registration_document,
+)
+from .president_application_views import (
+    submit_president_application,
+    my_president_application,
+    list_president_applications,
+    view_president_application_document,
+    approve_president_application,
+    reject_president_application,
+    public_club_list,
 )
 
 urlpatterns = [
@@ -46,4 +67,34 @@ urlpatterns = [
     view_club_registration_document,
     name="view-club-registration-document",
     ),
+    path(
+    "admin/mfa/setup/",
+    admin_mfa_setup,
+    name="admin-mfa-setup",
+    ),
+    path(
+        "admin/mfa/verify-setup/",
+        admin_mfa_verify_setup,
+        name="admin-mfa-verify-setup",
+    ),
+
+    path(
+        "admin/mfa/verify-login/",
+        admin_mfa_verify_login,
+        name="admin-mfa-verify-login",
+    ),
+
+    path(
+        "admin/mfa/recovery/",
+        admin_mfa_recovery,
+        name="admin-mfa-recovery",
+    ),
+    path("president-applications/", submit_president_application, name="president-application-submit"),
+    path("president-applications/me/", my_president_application, name="president-application-me"),
+    path("admin/president-applications/", list_president_applications, name="admin-president-application-list"),
+    path("admin/president-applications/<int:application_id>/document/", view_president_application_document, name="admin-president-application-document"),
+    path("admin/president-applications/<int:application_id>/approve/", approve_president_application, name="admin-president-application-approve"),
+    path("admin/president-applications/<int:application_id>/reject/", reject_president_application, name="admin-president-application-reject"),
+    path("clubs/", public_club_list, name="club-list"),
+
 ]

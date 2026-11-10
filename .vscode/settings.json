@@ -7,5 +7,5 @@
         }
     ],
     "python.terminal.useEnvFile": true,
-    "cmake.sourceDirectory": "D:/nexora/linux"
+    "cmake.ignoreCMakeListsMissing": true
 }

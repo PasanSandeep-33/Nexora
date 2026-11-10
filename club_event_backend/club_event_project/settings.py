@@ -250,3 +250,11 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
 }
+
+# Administrator MFA encryption
+MFA_ENCRYPTION_KEY = os.getenv("MFA_ENCRYPTION_KEY")
+
+if not MFA_ENCRYPTION_KEY:
+    raise ValueError(
+        "MFA_ENCRYPTION_KEY environment variable is missing"
+    )

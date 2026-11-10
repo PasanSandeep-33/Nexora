@@ -82,15 +82,22 @@ def validate_appointment_letter(uploaded_file):
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser])
 def submit_club_registration(request):
-    # Only students can submit club registration requests
-    if request.user.role != "student":
+    # Only a student whose President Application was approved may
+    # submit a club registration request. This is enforced server-side.
+    if str(request.user.role).strip().lower() != "student":
         return Response(
-            {
-                "detail": (
-                    "Only students can submit "
-                    "club registration requests."
-                )
-            },
+            {"detail": "Only student accounts may register a club."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    from .models import PresidentApplication
+    is_approved_president = PresidentApplication.objects.filter(
+        applicant_id=request.user.user_id,
+        status="approved",
+    ).exists()
+    if not is_approved_president:
+        return Response(
+            {"detail": "Your Club President application must be approved before you can register a club."},
             status=status.HTTP_403_FORBIDDEN,
         )
     # Validate club details
