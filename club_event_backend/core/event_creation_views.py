@@ -77,3 +77,43 @@ def review_event(request, event_id):
         EventApprovals.objects.create(event=event, admin=Users.objects.get(pk=request.user.user_id),
                                       decision=decision, reviewed_at=timezone.now(), comments=comments)
     return Response(EventSerializer(event).data)
+
+
+def _is_approved_president(user):
+    return (str(user.role).lower() == 'club_admin' and
+            PresidentApplication.objects.filter(applicant_id=user.user_id, status='approved').exists())
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_president_events(request):
+    if not _is_approved_president(request.user):
+        return Response({'detail': 'Approved Club President status is required.'}, status=403)
+    clubs = _owned_clubs(request.user)
+    events = Events.objects.filter(club__in=clubs).order_by('-event_id')
+    result = EventSerializer(events, many=True).data
+    names = {club.club_id: club.club_name for club in clubs}
+    for item in result:
+        item['club_name'] = names.get(item.get('club'), '')
+    return Response(result)
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def president_event_detail(request, event_id):
+    if not _is_approved_president(request.user):
+        return Response({'detail': 'Approved Club President status is required.'}, status=403)
+    event = Events.objects.filter(pk=event_id, club__in=_owned_clubs(request.user)).first()
+    if event is None:
+        return Response({'detail': 'Event not found or not managed by you.'}, status=404)
+    if request.method == 'DELETE':
+        # Existing RSVPs/tickets may restrict deletion depending on database FK rules.
+        event.delete()
+        return Response(status=204)
+    # Do not allow changing club, creator or approval status from the client.
+    allowed = ('title', 'category', 'description', 'event_date', 'location', 'capacity')
+    payload = {key: request.data[key] for key in allowed if key in request.data}
+    serializer = EventCreateSerializer(event, data=payload, partial=True)
+    serializer.is_valid(raise_exception=True)
+    updated = serializer.save()
+    return Response(EventSerializer(updated).data)

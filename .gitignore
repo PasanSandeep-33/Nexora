@@ -63,3 +63,7 @@ staticfiles/
 __pycache__/
 **/__pycache__/
 *.pyc
+
+# QR decoder and image
+club_event_backend/decode_qr.py
+club_event_backend/nexora_mfa_qr.png

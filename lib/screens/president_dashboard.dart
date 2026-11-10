@@ -47,28 +47,22 @@ class _PresidentDashboardState extends State<PresidentDashboard>
   File? profileImage; // Real image file selected from device gallery or camera
 
   // 1. Club Events List (CRUD Data)
-  final List<Map<String, dynamic>> clubEvents = [
-    {
-      "id": "1",
-      "category": "TECHNOLOGY",
-      "title": "Nexora Annual Hackathon 2026",
-      "organizer": "Organized by: IEEE Computer Society",
-      "description": "A 24-hour university coding sprint where student teams build innovative AI and campus software solutions.",
-      "date": "22/10/2026 • 23:54",
-      "venue": "Innovation Center",
-      "status": "APPROVED",
-    },
-    {
-      "id": "2",
-      "category": "CULTURAL",
-      "title": "Windaneeya Handawa",
-      "organizer": "Organized by: IEEE Computer Society",
-      "description": "Live acoustic music, drama performances, under the campus amphitheatre lights.",
-      "date": "26/10/2026 • 18:30",
-      "venue": "Prof. J.W. Dayananda Amphitheatre",
-      "status": "PENDING",
-    },
-  ];
+  final List<Map<String, dynamic>> clubEvents = [];
+  bool _loadingEvents = true;
+  String? _eventsError;
+
+  // Event overview calculated from the authenticated president's API events.
+  int get totalEvents => clubEvents.length;
+
+  int get upcomingEvents {
+    final now = DateTime.now();
+    return clubEvents.where((event) {
+      final rawDate = (event['raw'] as Map<String, dynamic>?)?['event_date'];
+      if (rawDate == null) return false;
+      final eventDate = DateTime.tryParse(rawDate.toString())?.toLocal();
+      return eventDate != null && eventDate.isAfter(now);
+    }).length;
+  }
 
   // 2. Registered Participants List (Scan Removed - Only Check In / Undo)
   final List<Map<String, dynamic>> participants = [
@@ -130,6 +124,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
     presidentId = _userValue(['president_id'], fallback: 'Not assigned');
     // 3 Separate Tabs: 0 = Events, 1 = Participants, 2 = Profile
     _tabController = TabController(length: 3, vsync: this);
+    _loadClubEvents();
   }
 
   @override
@@ -141,153 +136,82 @@ class _PresidentDashboardState extends State<PresidentDashboard>
     super.dispose();
   }
 
-  Future<void> _openCreateEventPage() async {
-    final created = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => const _PresidentCreateEventPage()),
-    );
+  Future<void> _loadClubEvents() async {
+    if (mounted) setState(() { _loadingEvents = true; _eventsError = null; });
+    try {
+      final clubs = await ApiService.getMyPresidentClubs();
+      final events = await ApiService.getMyPresidentEvents();
+      if (!mounted) return;
+      setState(() {
+        if (clubs.isNotEmpty) presidentClub = '${clubs.first['club_name'] ?? presidentClub}';
+        final sortedEvents = List<Map<String, dynamic>>.from(events);
+        sortedEvents.sort((a, b) {
+          DateTime? timestamp(Map<String, dynamic> e) =>
+              DateTime.tryParse('${e['created_at'] ?? e['created_on'] ?? e['event_date'] ?? ''}');
+          final aDate = timestamp(a);
+          final bDate = timestamp(b);
+          if (aDate == null && bDate == null) return 0;
+          if (aDate == null) return 1;
+          if (bDate == null) return -1;
+          return bDate.compareTo(aDate);
+        });
+        clubEvents..clear()..addAll(sortedEvents.map((e) => {
+          'id': '${e['event_id']}',
+          'category': '${e['category'] ?? 'OTHER'}'.toUpperCase(),
+          'title': '${e['title'] ?? ''}',
+          'organizer': 'Organized by: ${e['club_name'] ?? presidentClub}',
+          'description': '${e['description'] ?? ''}',
+          'date': _displayEventDate(e['event_date']),
+          'venue': '${e['location'] ?? ''}',
+          'status': '${e['approval_status'] ?? 'approved'}'.toUpperCase(),
+          'raw': e,
+        }));
+        _loadingEvents = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _loadingEvents = false; _eventsError = e.toString(); });
+    }
+  }
+
+  String _displayEventDate(dynamic value) {
+    final date = DateTime.tryParse('$value')?.toLocal();
+    if (date == null) return 'Date unavailable';
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(date.day)}/${two(date.month)}/${date.year} • ${two(date.hour)}:${two(date.minute)}';
+  }
+
+  Future<void> _openEventPage({Map<String, dynamic>? existingEvent}) async {
+    final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => _PresidentCreateEventPage(existingEvent: existingEvent?['raw']),
+    ));
     if (!mounted) return;
-    if (created == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Event published successfully.')),
-      );
-      // Existing event cards are sample data. Refresh them from the events API
-      // once the President Dashboard is connected to the backend event list.
+    if (saved == true) {
+      await _loadClubEvents();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(existingEvent == null ? 'Event published successfully.' : 'Event updated successfully.'),
+      ));
     }
   }
 
-  // ==================== CREATE / UPDATE EVENT DIALOG ====================
-  void _showEventDialog({Map<String, dynamic>? existingEvent}) {
-    if (existingEvent != null) {
-      _titleController.text = existingEvent["title"];
-      _descController.text = existingEvent["description"];
-      _venueController.text = existingEvent["venue"];
-      _selectedCategory = existingEvent["category"];
-    } else {
-      _titleController.clear();
-      _descController.clear();
-      _venueController.clear();
-      _selectedCategory = "TECHNOLOGY";
+  Future<void> _deleteEvent(String id) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Delete event?'),
+      content: const Text('This will permanently delete the event.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+      ],
+    ));
+    if (confirmed != true || !mounted) return;
+    try {
+      await ApiService.deletePresidentEvent(int.parse(id));
+      await _loadClubEvents();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: kWhiteCard,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text(
-            existingEvent == null ? "Create Club Event" : "Update Club Event",
-            style: const TextStyle(
-              color: kBgColor,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: _titleController,
-                  style: const TextStyle(color: kBgColor),
-                  decoration: const InputDecoration(
-                    labelText: "Event Title",
-                    labelStyle: TextStyle(color: kTextGrey),
-                  ),
-                ),
-                TextField(
-                  controller: _descController,
-                  style: const TextStyle(color: kBgColor),
-                  decoration: const InputDecoration(
-                    labelText: "Description",
-                    labelStyle: TextStyle(color: kTextGrey),
-                  ),
-                ),
-                TextField(
-                  controller: _venueController,
-                  style: const TextStyle(color: kBgColor),
-                  decoration: const InputDecoration(
-                    labelText: "Venue",
-                    labelStyle: TextStyle(color: kTextGrey),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedCategory,
-                  dropdownColor: kWhiteCard,
-                  style: const TextStyle(color: kBgColor),
-                  items: ["TECHNOLOGY", "CULTURAL", "SPORTS", "WORKSHOP"]
-                      .map(
-                        (cat) => DropdownMenuItem(
-                          value: cat,
-                          child: Text(
-                            cat,
-                            style: const TextStyle(color: kBgColor),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      _selectedCategory = val!;
-                    });
-                  },
-                  decoration: const InputDecoration(
-                    labelText: "Category",
-                    labelStyle: TextStyle(color: kTextGrey),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel", style: TextStyle(color: kTextGrey)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: kBlue,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                if (_titleController.text.isNotEmpty) {
-                  setState(() {
-                    if (existingEvent == null) {
-                      clubEvents.add({
-                        "id": DateTime.now().toString(),
-                        "category": _selectedCategory,
-                        "title": _titleController.text,
-                        "organizer": "Organized by: $presidentClub",
-                        "description": _descController.text,
-                        "date": "30/10/2026 • 10:00",
-                        "venue": _venueController.text,
-                        "status": "PENDING",
-                      });
-                    } else {
-                      existingEvent["title"] = _titleController.text;
-                      existingEvent["description"] = _descController.text;
-                      existingEvent["venue"] = _venueController.text;
-                      existingEvent["category"] = _selectedCategory;
-                    }
-                  });
-                  Navigator.pop(context);
-                }
-              },
-              child: Text(existingEvent == null ? "Publish" : "Save Changes"),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // Delete Event Function
-  void _deleteEvent(String id) {
-    setState(() {
-      clubEvents.removeWhere((event) => event["id"] == id);
-    });
   }
 
   // ==================== ADD PARTICIPANT DIALOG ====================
@@ -866,7 +790,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                         actionLabel,
                         style: const TextStyle(
                           color: kBlue,
-                          fontSize: 11.5,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -986,7 +910,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                     presidentName.split(' ').first,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 12,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -1023,13 +947,6 @@ class _PresidentDashboardState extends State<PresidentDashboard>
 
   // ==================== TAB 1: EVENTS TAB ====================
   Widget _buildEventsTab() {
-    int totalEvents = clubEvents.length;
-    int pendingApprovals = clubEvents
-        .where((e) => e["status"] == "PENDING")
-        .length;
-    int approvedEvents = clubEvents
-        .where((e) => e["status"] == "APPROVED")
-        .length;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -1050,7 +967,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
               ),
               const SizedBox(height: 3),
               const Text(
-                "Manage your club's events and approvals.",
+                "Manage your club's published events.",
                 style: TextStyle(color: Colors.white70, fontSize: 13),
               ),
             ],
@@ -1067,9 +984,9 @@ class _PresidentDashboardState extends State<PresidentDashboard>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildMetricItem("Total Events", "$totalEvents", kBlue),
-                _buildMetricItem("Pending", "$pendingApprovals", Colors.orange),
-                _buildMetricItem("Approved", "$approvedEvents", Colors.green),
+                Expanded(child: _buildMetricItem("Total Events", "$totalEvents", kBlue)),
+                const SizedBox(width: 12),
+                Expanded(child: _buildMetricItem("Upcoming Events", "$upcomingEvents", Colors.green)),
               ],
             ),
           ),
@@ -1079,7 +996,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _openCreateEventPage,
+              onPressed: () => _openEventPage(),
               icon: const Icon(Icons.add, color: Colors.white),
               label: const Text(
                 "Create New Club Event",
@@ -1103,14 +1020,19 @@ class _PresidentDashboardState extends State<PresidentDashboard>
             "Manage Club Events",
             style: TextStyle(
               color: Colors.white,
-              fontSize: 16,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 12),
 
+          if (_loadingEvents) const Center(child: CircularProgressIndicator()),
+          if (_eventsError != null) Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text('Could not load events: $_eventsError', style: const TextStyle(color: Colors.redAccent, fontSize: 14)),
+          ),
           // White Event Cards List on Navy Blue Background
-          clubEvents.isEmpty
+          if (!_loadingEvents && _eventsError == null) clubEvents.isEmpty
               ? const Center(
                   child: Text(
                     "No events found for your club.",
@@ -1150,7 +1072,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                                   event["category"],
                                   style: const TextStyle(
                                     color: kPurple,
-                                    fontSize: 10,
+                                    fontSize: 13,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -1163,7 +1085,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                                       color: event["status"] == "APPROVED"
                                           ? Colors.green
                                           : Colors.orange,
-                                      fontSize: 11,
+                                      fontSize: 13,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -1174,7 +1096,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                                       size: 18,
                                     ),
                                     onPressed: () =>
-                                        _showEventDialog(existingEvent: event),
+                                        _openEventPage(existingEvent: event),
                                   ),
                                   IconButton(
                                     icon: const Icon(
@@ -1195,7 +1117,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                             event["title"],
                             style: const TextStyle(
                               color: kBgColor,
-                              fontSize: 16,
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -1204,7 +1126,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                             event["organizer"],
                             style: const TextStyle(
                               color: kBlue,
-                              fontSize: 11.5,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -1215,61 +1137,30 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                             event["description"],
                             style: const TextStyle(
                               color: kTextGrey,
-                              fontSize: 12,
+                              fontSize: 14,
                             ),
                           ),
                           const SizedBox(height: 12),
 
                           // Date, Venue & Button to View Participants in Tab 2
-                          Row(
+                          Wrap(
+                            spacing: 12, runSpacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              const Icon(
-                                Icons.calendar_today,
-                                size: 13,
-                                color: kBlue,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                event["date"],
-                                style: const TextStyle(
-                                  color: kBgColor,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              const Icon(
-                                Icons.location_on,
-                                size: 14,
-                                color: kBlue,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  event["venue"],
-                                  style: const TextStyle(
-                                    color: kBgColor,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
+                              Row(mainAxisSize: MainAxisSize.min, children: [
+                                const Icon(Icons.calendar_today, size: 16, color: kBlue),
+                                const SizedBox(width: 5),
+                                Text('${event["date"]}', style: const TextStyle(color: kBgColor, fontSize: 13, fontWeight: FontWeight.w600)),
+                              ]),
+                              Row(mainAxisSize: MainAxisSize.min, children: [
+                                const Icon(Icons.location_on, size: 17, color: kBlue),
+                                const SizedBox(width: 5),
+                                SizedBox(width: 190, child: Text('${event["venue"]}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: kBgColor, fontSize: 13, fontWeight: FontWeight.w600))),
+                              ]),
                               TextButton.icon(
-                                onPressed: () {
-                                  setState(() {
-                                    _selectedEventFilter = event["title"];
-                                  });
-                                  _tabController.animateTo(1);
-                                },
-                                icon: const Icon(Icons.people, size: 15),
-                                label: const Text(
-                                  "Participants",
-                                  style: TextStyle(fontSize: 11),
-                                ),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: kBlue,
-                                ),
+                                onPressed: () { setState(() => _selectedEventFilter = event['title']); _tabController.animateTo(1); },
+                                icon: const Icon(Icons.people, size: 17),
+                                label: const Text('Participants', style: TextStyle(fontSize: 13)),
                               ),
                             ],
                           ),
@@ -1497,7 +1388,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                                   "${p["studentId"]} • ${p["email"]}",
                                   style: const TextStyle(
                                     color: kTextGrey,
-                                    fontSize: 11.5,
+                                    fontSize: 14,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -1505,7 +1396,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                                   p["eventTitle"],
                                   style: const TextStyle(
                                     color: kBlue,
-                                    fontSize: 11.5,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -1518,7 +1409,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                                     color: isCheckedIn
                                         ? Colors.green
                                         : Colors.orange,
-                                    fontSize: 11,
+                                    fontSize: 13,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -1701,7 +1592,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
             description,
             style: const TextStyle(
               color: Color(0xFF475569),
-              fontSize: 12,
+              fontSize: 14,
               height: 1.45,
             ),
           ),
@@ -1792,7 +1683,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                   'President ID: $presidentId',
                   style: const TextStyle(
                     color: kBlue,
-                    fontSize: 11,
+                    fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -1904,7 +1795,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
               label,
               style: const TextStyle(
                 color: kBgColor,
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -1975,7 +1866,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
           label,
           style: const TextStyle(
             color: kBgColor,
-            fontSize: 11.5,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -1988,7 +1879,8 @@ class _PresidentDashboardState extends State<PresidentDashboard>
 /// Full-screen event publishing form for the authenticated club president.
 /// The organizing club is resolved from the server, never selected by the user.
 class _PresidentCreateEventPage extends StatefulWidget {
-  const _PresidentCreateEventPage();
+  final Map<String, dynamic>? existingEvent;
+  const _PresidentCreateEventPage({this.existingEvent});
 
   @override
   State<_PresidentCreateEventPage> createState() => _PresidentCreateEventPageState();
@@ -2008,6 +1900,22 @@ class _PresidentCreateEventPageState extends State<_PresidentCreateEventPage> {
   DateTime? _date;
   TimeOfDay? _time;
   bool _saving = false;
+  bool get _editing => widget.existingEvent != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final event = widget.existingEvent;
+    if (event == null) return;
+    _title.text = '${event['title'] ?? ''}';
+    _description.text = '${event['description'] ?? ''}';
+    _venue.text = '${event['location'] ?? ''}';
+    _capacity.text = '${event['capacity'] ?? ''}';
+    final categories = ['Technology', 'Cultural', 'Sports', 'Academic', 'Arts', 'Social Service', 'Other'];
+    _category = categories.firstWhere((c) => c.toLowerCase() == '${event['category']}'.toLowerCase(), orElse: () => 'Other');
+    final dt = DateTime.tryParse('${event['event_date']}')?.toLocal();
+    if (dt != null) { _date = dt; _time = TimeOfDay.fromDateTime(dt); }
+  }
 
   @override
   void dispose() {
@@ -2065,17 +1973,25 @@ class _PresidentCreateEventPageState extends State<_PresidentCreateEventPage> {
     }
     setState(() => _saving = true);
     try {
-      final clubs = await ApiService.getMyPresidentClubs();
-      if (clubs.length != 1) {
+      final clubs = _editing ? <Map<String, dynamic>>[] : await ApiService.getMyPresidentClubs();
+      if (!_editing && clubs.length != 1) {
         throw Exception(clubs.isEmpty
           ? 'No approved club is linked to your account.'
           : 'Multiple clubs are linked to your account. Automatic club selection is unavailable.');
       }
-      final rawId = clubs.single['club_id'];
+      final rawId = _editing ? null : clubs.single['club_id'];
       final clubId = rawId is int ? rawId : int.tryParse('$rawId');
-      if (clubId == null) throw Exception('The approved club has no valid ID.');
+      if (!_editing && clubId == null) throw Exception('The approved club has no valid ID.');
+      if (_editing) {
+        await ApiService.updatePresidentEvent(
+          eventId: (widget.existingEvent!['event_id'] as num).toInt(),
+          title: _title.text.trim(), category: _category,
+          description: _description.text.trim(), dateTime: scheduled,
+          location: _venue.text.trim(), capacity: int.parse(_capacity.text.trim()),
+        );
+      } else {
       await ApiService.createEvent(
-        clubId: clubId,
+        clubId: clubId!,
         title: _title.text.trim(),
         category: _category,
         description: _description.text.trim(),
@@ -2083,6 +1999,7 @@ class _PresidentCreateEventPageState extends State<_PresidentCreateEventPage> {
         location: _venue.text.trim(),
         capacity: int.parse(_capacity.text.trim()),
       );
+      }
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (error) {
@@ -2099,7 +2016,7 @@ class _PresidentCreateEventPageState extends State<_PresidentCreateEventPage> {
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: _navy,
     appBar: AppBar(
-      title: const Text('Add New Event'),
+      title: Text(_editing ? 'Edit Event' : 'Add New Event'),
       backgroundColor: _navy,
       foregroundColor: Colors.white,
     ),
@@ -2108,8 +2025,8 @@ class _PresidentCreateEventPageState extends State<_PresidentCreateEventPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
         children: [
-          const Text(
-            'Create an event for your approved club. The event will be published immediately.',
+          Text(
+            _editing ? 'Update your club event details.' : 'Create an event for your approved club. The event will be published immediately.',
             style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
           ),
           _label('Event title'),
@@ -2152,8 +2069,8 @@ class _PresidentCreateEventPageState extends State<_PresidentCreateEventPage> {
               onPressed: _saving ? null : () async {
                 final now = DateTime.now();
                 final d = await showDatePicker(context: context,
-                  initialDate: now.add(const Duration(days: 1)),
-                  firstDate: now, lastDate: now.add(const Duration(days: 1825)));
+                  initialDate: _date != null && !_date!.isBefore(now) ? _date! : now.add(const Duration(days: 1)),
+                  firstDate: _date != null && _date!.isBefore(now) ? _date! : now, lastDate: now.add(const Duration(days: 1825)));
                 if (d != null && mounted) setState(() => _date = d);
               },
             )),
@@ -2198,7 +2115,7 @@ class _PresidentCreateEventPageState extends State<_PresidentCreateEventPage> {
             child: _saving
               ? const SizedBox(height: 22, width: 22,
                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Text('Publish Event', style: TextStyle(fontWeight: FontWeight.bold)),
+              : Text(_editing ? 'Save Changes' : 'Publish Event', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ),
         ],
       ),

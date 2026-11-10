@@ -462,6 +462,43 @@ static Future<bool> refreshSession() async {
         : 'Could not submit event (${response.statusCode}).');
   }
 
+  // President-only event management; JWT identifies the president on the server.
+  static Future<List<Map<String, dynamic>>> getMyPresidentEvents() async {
+    final token = await AuthStorage.getToken();
+    if (token == null || token.isEmpty) throw Exception('Please log in again.');
+    final response = await http.get(Uri.parse('$baseUrl/api/president/events/'),
+      headers: {'Authorization': 'Bearer $token'}).timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) throw Exception('Could not load club events (${response.statusCode}): ${response.body}');
+    final decoded = jsonDecode(response.body);
+    final items = decoded is List ? decoded : (decoded is Map && decoded['results'] is List ? decoded['results'] as List : []);
+    return items.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  static Future<void> updatePresidentEvent({
+    required int eventId, required String title, required String category,
+    required String description, required DateTime dateTime,
+    required String location, required int capacity,
+  }) async {
+    final token = await AuthStorage.getToken();
+    if (token == null || token.isEmpty) throw Exception('Please log in again.');
+    final response = await http.patch(Uri.parse('$baseUrl/api/president/events/$eventId/'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode({'title': title, 'category': category, 'description': description,
+        'event_date': dateTime.toUtc().toIso8601String(), 'location': location, 'capacity': capacity}),
+    ).timeout(const Duration(seconds: 25));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Could not update event (${response.statusCode}): ${response.body}');
+    }
+  }
+
+  static Future<void> deletePresidentEvent(int eventId) async {
+    final token = await AuthStorage.getToken();
+    if (token == null || token.isEmpty) throw Exception('Please log in again.');
+    final response = await http.delete(Uri.parse('$baseUrl/api/president/events/$eventId/'),
+      headers: {'Authorization': 'Bearer $token'}).timeout(const Duration(seconds: 25));
+    if (response.statusCode != 204) throw Exception('Could not delete event (${response.statusCode}): ${response.body}');
+  }
+
   // Logout - Delete locally stored JWT token
   static Future<void> logout() async {
     await AuthStorage.deleteToken();
