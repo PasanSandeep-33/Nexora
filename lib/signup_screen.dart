@@ -95,7 +95,7 @@ class _SignupPageState extends State<SignupPage> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.82),
+                  color: Colors.white.withValues(alpha: 0.82),
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: const [
                     BoxShadow(
