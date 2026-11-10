@@ -69,6 +69,70 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
+  Widget _buildLoginErrorPopup() {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 280),
+      reverseDuration: const Duration(milliseconds: 220),
+      transitionBuilder: (child, animation) {
+        final curvedAnimation = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curvedAnimation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.92, end: 1).animate(curvedAnimation),
+            child: child,
+          ),
+        );
+      },
+      child: _loginErrorMessage == null
+          ? const SizedBox(key: ValueKey('no-login-error-popup'))
+          : ConstrainedBox(
+              key: const ValueKey('login-error-popup'),
+              constraints: const BoxConstraints(maxWidth: 300),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.82),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x33000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline_rounded,
+                      color: Colors.redAccent,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        _loginErrorMessage!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFFD32F2F),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+
   Future<void> _login() async {
     FocusScope.of(context).unfocus();
 
@@ -150,14 +214,17 @@ class _LoginPageState extends State<LoginPage> {
       );
 
     } catch (error) {
-  debugPrint('LOGIN ERROR: $error');
-  debugPrint('ERROR TYPE: ${error.runtimeType}');
+      debugPrint('LOGIN ERROR: $error');
+      debugPrint('ERROR TYPE: ${error.runtimeType}');
 
-  if (!mounted) return;
+      if (!mounted) return;
 
-  _showMessage(
-    'Unable to log in. Check your connection or try again.',
-  );
+      final errorMessage = error.toString().replaceFirst('Exception: ', '');
+      _showLoginError(
+        errorMessage.isNotEmpty
+            ? errorMessage
+            : 'Unable to log in. Check your connection or try again.',
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -466,6 +533,7 @@ class _LoginPageState extends State<LoginPage> {
                                   style: const TextStyle(
                                     color: Colors.black,
                                     fontSize: 16,
+                                    letterSpacing: -0.5,
                                   ),
 
                                   obscureText: _hidePassword,
@@ -589,10 +657,14 @@ class _LoginPageState extends State<LoginPage> {
                                 const SizedBox(height: 15),
 
                                 // GRADIENT LOGIN BUTTON
-                                SizedBox(
-                                  height: 54,
-
-                                  child: DecoratedBox(
+                                Stack(
+                                  clipBehavior: Clip.none,
+                                  alignment: Alignment.center,
+                                  children: [
+                                    SizedBox(
+                                      height: 54,
+                                      width: double.infinity,
+                                      child: DecoratedBox(
                                     decoration: BoxDecoration(
                                       gradient:
                                           const LinearGradient(
@@ -650,7 +722,13 @@ class _LoginPageState extends State<LoginPage> {
                                               ),
                                             ),
                                     ),
-                                  ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      bottom: 64,
+                                      child: _buildLoginErrorPopup(),
+                                    ),
+                                  ],
                                 ),
 
                                 const SizedBox(height: 22),
@@ -691,9 +769,9 @@ class _LoginPageState extends State<LoginPage> {
                                         ],
                                       ),
                                       Transform.translate(
-                                        // Float the authentication feedback in
-                                        // the space directly above Login.
-                                        offset: const Offset(0, -110),
+                                        // Legacy divider overlay is kept out of
+                                        // view; the visible popup is above Login.
+                                        offset: const Offset(0, -10000),
                                         child: OverflowBox(
                                           maxWidth: 300,
                                           maxHeight: 80,

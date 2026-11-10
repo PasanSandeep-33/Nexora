@@ -132,10 +132,46 @@ class _SignupPageState extends State<SignupPage> {
     );
   }
 
+  String? _signupValidationMessage() {
+    final fullName = _fullNameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final confirmation = _confirmPasswordController.text;
+
+    if (fullName.isEmpty) return 'Please enter your full name.';
+    if (email.isEmpty) return 'Please enter your email.';
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      return 'Enter a valid email address.';
+    }
+    if (password.isEmpty) return 'Please create a password.';
+    if (password.length < 8) return 'Password must contain at least 8 characters.';
+    if (!RegExp(r'[A-Z]').hasMatch(password)) {
+      return 'Password must contain at least one uppercase letter.';
+    }
+    if (!RegExp(r'[a-z]').hasMatch(password)) {
+      return 'Password must contain at least one lowercase letter.';
+    }
+    if (!RegExp(r'[0-9]').hasMatch(password)) {
+      return 'Password must contain at least one number.';
+    }
+    if (!RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(password)) {
+      return 'Password must contain at least one special character.';
+    }
+    if (confirmation.isEmpty) return 'Please confirm your password.';
+    if (password != confirmation) return 'Passwords do not match.';
+    return null;
+  }
+
   Future<void> _signUp() async {
     FocusScope.of(context).unfocus();
 
-    if (_isLoading || !_formKey.currentState!.validate()) {
+    if (_isLoading) {
+      return;
+    }
+
+    final validationMessage = _signupValidationMessage();
+    if (validationMessage != null) {
+      _showSignupError(validationMessage);
       return;
     }
 
@@ -230,7 +266,11 @@ class _SignupPageState extends State<SignupPage> {
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
-      style: const TextStyle(color: Colors.black, fontSize: 16),
+      style: TextStyle(
+        color: Colors.black,
+        fontSize: 16,
+        letterSpacing: obscureText ? -0.5 : 0,
+      ),
       textInputAction: textInputAction,
       onFieldSubmitted: onFieldSubmitted,
       decoration: _inputDecoration(hint: hint, icon: Icons.lock_outline_rounded)
