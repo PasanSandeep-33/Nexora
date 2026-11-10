@@ -1,4 +1,6 @@
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -24,6 +26,8 @@ class _LoginPageState extends State<LoginPage> {
   bool _rememberMe = false;
   bool _hidePassword = true;
   bool _isLoading = false;
+  String? _loginErrorMessage;
+  Timer? _loginErrorTimer;
 
   static const Color navy = Color(0xFF050B25);
   static const Color blue = Color(0xFF3478FF);
@@ -45,6 +49,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
+    _loginErrorTimer?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -56,7 +61,17 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  void _showLoginError(String message) {
+    _loginErrorTimer?.cancel();
+    setState(() => _loginErrorMessage = message);
+    _loginErrorTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _loginErrorMessage = null);
+    });
+  }
+
   Future<void> _login() async {
+    FocusScope.of(context).unfocus();
+
     if (_isLoading || !_formKey.currentState!.validate()) {
       return;
     }
@@ -285,28 +300,14 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF030620),
 
-      resizeToAvoidBottomInset: true,
+      resizeToAvoidBottomInset: false,
 
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            return SingleChildScrollView(
-              keyboardDismissBehavior:
-                  ScrollViewKeyboardDismissBehavior.onDrag,
-
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.viewInsetsOf(context).bottom > 0
-                    ? 20
-                    : 0,
-              ),
-
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: 480,
-                  ),
-
-                  child: Column(
+            final formContent = SizedBox(
+              width: constraints.maxWidth.clamp(0.0, 480.0).toDouble(),
+              child: Column(
                     children: [
                       // NEXORA LOGO BACKGROUND
                       SizedBox(
@@ -654,37 +655,147 @@ class _LoginPageState extends State<LoginPage> {
 
                                 const SizedBox(height: 22),
 
-                                // DIVIDER
-                                Row(
-                                  children: [
-                                    const Expanded(
-                                      child: Divider(
-                                        color: Color(0xFFE4E8EB),
+                                // The error floats over this divider without
+                                // changing the layout of the login form.
+                                SizedBox(
+                                  height: 20,
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    alignment: Alignment.center,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Expanded(
+                                            child: Divider(
+                                              color: Color(0xFFE4E8EB),
+                                            ),
+                                          ),
+                                          Padding(
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                            ),
+                                            child: Text(
+                                              'Or Continue With',
+                                              style: TextStyle(
+                                                color: Colors.grey.shade600,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ),
+                                          const Expanded(
+                                            child: Divider(
+                                              color: Color(0xFFE4E8EB),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ),
-
-                                    Padding(
-                                      padding:
-                                          const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                      ),
-
-                                      child: Text(
-                                        'Or Continue With',
-                                        style: TextStyle(
-                                          color:
-                                              Colors.grey.shade600,
-                                          fontSize: 14,
+                                      Transform.translate(
+                                        // Float the authentication feedback in
+                                        // the space directly above Login.
+                                        offset: const Offset(0, -110),
+                                        child: OverflowBox(
+                                          maxWidth: 300,
+                                          maxHeight: 80,
+                                          alignment: Alignment.center,
+                                          child: AnimatedSwitcher(
+                                          duration: const Duration(
+                                            milliseconds: 280,
+                                          ),
+                                          reverseDuration: const Duration(
+                                            milliseconds: 220,
+                                          ),
+                                          transitionBuilder:
+                                              (child, animation) {
+                                          final curvedAnimation =
+                                              CurvedAnimation(
+                                            parent: animation,
+                                            curve: Curves.easeOutCubic,
+                                            reverseCurve: Curves.easeInCubic,
+                                          );
+                                          return FadeTransition(
+                                            opacity: curvedAnimation,
+                                            child: ScaleTransition(
+                                              scale: Tween<double>(
+                                                begin: 0.92,
+                                                end: 1,
+                                              ).animate(curvedAnimation),
+                                              child: child,
+                                            ),
+                                          );
+                                          },
+                                          child: _loginErrorMessage == null
+                                            ? const SizedBox(
+                                                key: ValueKey('no-login-error'),
+                                              )
+                                            : ConstrainedBox(
+                                                key: const ValueKey(
+                                                  'login-error',
+                                                ),
+                                                constraints:
+                                                    const BoxConstraints(
+                                                  maxWidth: 300,
+                                                ),
+                                                child: Material(
+                                                  color: Colors.transparent,
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                      horizontal: 14,
+                                                      vertical: 10,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white
+                                                          .withOpacity(0.82),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                        14,
+                                                      ),
+                                                      boxShadow: const [
+                                                        BoxShadow(
+                                                          color: Color(0x33000000),
+                                                          blurRadius: 12,
+                                                          offset: Offset(0, 4),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(
+                                                          Icons
+                                                              .error_outline_rounded,
+                                                          color: Colors.redAccent,
+                                                          size: 20,
+                                                        ),
+                                                        const SizedBox(width: 8),
+                                                        Flexible(
+                                                          child: Text(
+                                                            _loginErrorMessage!,
+                                                            textAlign:
+                                                                TextAlign.center,
+                                                            style:
+                                                                const TextStyle(
+                                                              color: Color(
+                                                                0xFFD32F2F,
+                                                              ),
+                                                              fontSize: 13,
+                                                              fontWeight:
+                                                                  FontWeight.w600,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ),
                                         ),
                                       ),
-                                    ),
-
-                                    const Expanded(
-                                      child: Divider(
-                                        color: Color(0xFFE4E8EB),
-                                      ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
 
                                 const SizedBox(height: 20),
@@ -706,8 +817,14 @@ class _LoginPageState extends State<LoginPage> {
                       // Prevent bottom clipping
                       const SizedBox(height: 16),
                     ],
-                  ),
-                ),
+              ),
+            );
+
+            return SizedBox.expand(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.topCenter,
+                child: formContent,
               ),
             );
           },

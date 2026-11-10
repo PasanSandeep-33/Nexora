@@ -50,7 +50,20 @@ class ApiService {
     if (response.statusCode == 201) {
       return Map<String, dynamic>.from(data);
     } else {
-      throw Exception('Signup failed: $data');
+      if (data is Map) {
+        final message = data['message'];
+        if (message is String && message.isNotEmpty) {
+          throw Exception(message);
+        }
+
+        for (final value in data.values) {
+          if (value is List && value.isNotEmpty) {
+            throw Exception(value.first.toString());
+          }
+        }
+      }
+
+      throw Exception('Unable to create your account. Please try again.');
     }
   }
 
