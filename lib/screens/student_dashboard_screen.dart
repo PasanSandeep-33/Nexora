@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -26,11 +27,16 @@ class StudentDashboardScreen extends StatefulWidget {
 }
 
 class _StudentDashboardScreenState extends State<StudentDashboardScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   String _selectedCategory = 'All';
   final TextEditingController _searchController = TextEditingController();
   bool _isSearchVisible = false;
+  Timer? _presidentStatusTimer;
+  bool _checkingPresidentStatus = false;
+  bool _approvalDialogOpen = false;
+  bool _approvalConfirmed = false;
+
   File? _profileImage; // Temporary preview while uploading
   String? _profileImageUrl; // Persistent Cloudinary image URL
   bool _isUploadingProfileImage = false;
@@ -60,6 +66,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkPresidentApproval());
+    _presidentStatusTimer = Timer.periodic(
+      const Duration(seconds: 20), (_) => _checkPresidentApproval(),
+    );
     _tabController = TabController(length: 4, vsync: this);
     _profileImageUrl = widget.user?['profile_image_url']?.toString();
     _loadProfileImage();
@@ -108,9 +119,88 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
 
   @override
   void dispose() {
+    _presidentStatusTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkPresidentApproval();
+  }
+
+  Future<void> _checkPresidentApproval() async {
+    if (!mounted || _checkingPresidentStatus || _approvalDialogOpen || _approvalConfirmed) return;
+    _checkingPresidentStatus = true;
+    try {
+      final response = await ApiService.getMyPresidentApplication();
+      final application = response?['application'];
+      final approved = response?['is_approved_president'] == true ||
+          (application is Map && application['status']?.toString().toLowerCase() == 'approved');
+      if (!mounted || !approved) return;
+      _approvalConfirmed = true;
+      _presidentStatusTimer?.cancel();
+      await _showPresidentApprovalDialog();
+    } catch (error) {
+      // A network failure is not evidence of approval. Retry on the next poll.
+      debugPrint('President approval status check failed: $error');
+    } finally {
+      _checkingPresidentStatus = false;
+    }
+  }
+
+  Future<void> _showPresidentApprovalDialog() async {
+    if (!mounted || _approvalDialogOpen) return;
+    _approvalDialogOpen = true;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          backgroundColor: navyCard,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(children: [
+            Icon(Icons.verified_rounded, color: Color(0xFF34D399)),
+            SizedBox(width: 8),
+            Expanded(child: Text('President Request Approved!',
+                style: TextStyle(color: Colors.white, fontSize: 18))),
+          ]),
+          content: const Text(
+            'Your President request has been accepted. Please log out and log in again to access your President Dashboard.\n\n'
+            'Logging out ends your current session and cannot be undone.',
+            style: TextStyle(color: Colors.white70, height: 1.5),
+          ),
+          actions: [
+            ElevatedButton.icon(
+              onPressed: () async {
+                try {
+                  await ApiService.logout();
+                  if (!dialogContext.mounted || !mounted) return;
+                  Navigator.of(dialogContext, rootNavigator: true).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const LoginPage()),
+                    (_) => false,
+                  );
+                } catch (error) {
+                  debugPrint('Mandatory president logout failed: $error');
+                  if (!dialogContext.mounted) return;
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(content: Text('Logout failed. Please try again.')),
+                  );
+                }
+              },
+              icon: const Icon(Icons.logout),
+              label: const Text('Log Out & Continue'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: blue, foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   String get _userName {

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'signup_screen.dart';
 import 'services/api_service.dart';
 import 'screens/student_dashboard_screen.dart';
+import 'screens/president_dashboard.dart';
 import 'services/auth_storage.dart';
 import 'screens/admin_mfa_screen.dart';
 
@@ -192,7 +193,7 @@ class _LoginPageState extends State<LoginPage> {
       final loggedInUser = Map<String, dynamic>.from(user);
       final role = loggedInUser['role']?.toString().toLowerCase();
 
-      if (role != 'student') {
+      if (role != 'student' && role != 'president') {
         throw Exception('Unexpected login response for role: $role');
       }
 
@@ -209,7 +210,9 @@ class _LoginPageState extends State<LoginPage> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => StudentDashboardScreen(user: loggedInUser),
+          builder: (_) => role == 'president'
+              ? const PresidentDashboard()
+              : StudentDashboardScreen(user: loggedInUser),
         ),
       );
 

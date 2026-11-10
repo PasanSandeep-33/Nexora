@@ -140,11 +140,11 @@ class _ClubsTabState extends State<ClubsTab> {
           else if (status == 'approved')
             _actionCard(
               icon: Icons.add_business_rounded,
-              title: 'Add New Event',
-              subtitle: _presidentClubs.isEmpty ? 'No approved club is linked to your account. Please contact an administrator.' : 'Create and publish an event for your approved club.',
-              action: _presidentClubs.isEmpty ? 'Refresh' : 'Create Event',
+              title: 'President Request Approved',
+              subtitle: 'Please log out and sign in again to open your President Dashboard.',
+              action: 'Awaiting re-login',
               color: cyan,
-              onTap: _presidentClubs.isEmpty ? _loadData : _openCreateEvent,
+              onTap: () {},
             )
           else if (status == 'pending')
             _statusCard(
