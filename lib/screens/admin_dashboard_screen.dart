@@ -38,7 +38,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   late TabController _tabController;
   final _storage = const FlutterSecureStorage();
   
-  int _currentTabIndex = 0; // Moderation, Events, Clubs, Users, President Applications, Profile
+  int _currentTabIndex = 0; // Moderation, Events, Clubs, President Applications
   String _selectedPresidentFilter = 'All';
   bool _isLoadingPresidentApplications = false;
   String? _presidentApplicationsError;
@@ -46,7 +46,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   String _selectedModerationFilter = 'All';
   String _selectedEventFilter = 'All';
   String _selectedClubFilter = 'All';
-  String _selectedUserFilter = 'All';
 
   String _searchQuery = '';
   String _adminInitial = 'A';
@@ -72,13 +71,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     'Annual club roster audit completed.',
   ];
 
-  // Registered University Users list for Role Management
-  final List _universityUsers = [
-    {'name': 'Raveen Perera', 'email': 'raveen.p@campus.nexora.edu', 'role': 'Club President', 'status': 'Active'},
-    {'name': 'Amal De Silva', 'email': 'amal.d@campus.nexora.edu', 'role': 'Student', 'status': 'Active'},
-    {'name': 'Nimesha Fernando', 'email': 'nimesha.f@campus.nexora.edu', 'role': 'Student', 'status': 'Active'},
-    {'name': 'Kasun Gunawardena', 'email': 'kasun.g@campus.nexora.edu', 'role': 'Club President', 'status': 'Active'},
-  ];
 
   // Mock event submissions with correct upcoming dates (Nov/Dec 2026)
   final List _allEvents = [
@@ -186,7 +178,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(_handleTabSelection);
     _loadSavedAdminProfile();
     _loadPresidentApplications(); 
@@ -280,16 +272,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     if (_selectedClubFilter != 'All') {
       String filterVal = _selectedClubFilter == 'Renewal' ? 'Pending Renewal' : _selectedClubFilter;
       list = list.where((club) => club['status'] == filterVal).toList();
-    }
-    return list;
-  }
-
-  List get _filteredUsers {
-    var list = _universityUsers;
-    if (_selectedUserFilter == 'Students') {
-      list = list.where((u) => u['role'] == 'Student').toList();
-    } else if (_selectedUserFilter == 'Presidents') {
-      list = list.where((u) => u['role'] == 'Club President').toList();
     }
     return list;
   }
@@ -688,7 +670,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    // Keep dashboard text at a consistent, normal size regardless of a
+    // device's system font-scale setting.
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+      child: Scaffold(
       backgroundColor: navy,
       body: SafeArea(
         child: Column(
@@ -749,7 +735,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                 'Admin Portal',
                                 style: TextStyle(
                                   color: cyan,
-                                  fontSize: 11,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   letterSpacing: 0.3,
                                 ),
@@ -798,12 +784,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       ),
                       const SizedBox(width: 8),
                       GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _currentTabIndex = 5;
-                            _tabController.animateTo(5);
-                          });
-                        },
+                        onTap: _openProfileScreen,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
@@ -833,7 +814,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                           _adminInitial,
                                           style: const TextStyle(
                                             color: Colors.white,
-                                            fontSize: 11,
+                                            fontSize: 12,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         )
@@ -889,7 +870,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               ),
             ),
 
-            // 5 Tabs Navigation Bar
+            // Dashboard navigation
             Container(
               decoration: BoxDecoration(
                 color: navy,
@@ -916,7 +897,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       children: [
                         Icon(Icons.admin_panel_settings_rounded, size: 20),
                         SizedBox(height: 2),
-                        FittedBox(fit: BoxFit.scaleDown, child: Text('Moderation', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600))),
+                        Text('Moderation', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
@@ -926,7 +907,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       children: [
                         Icon(Icons.event_rounded, size: 20),
                         SizedBox(height: 2),
-                        FittedBox(fit: BoxFit.scaleDown, child: Text('Events', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600))),
+                        Text('Events', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
@@ -936,17 +917,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       children: [
                         Icon(Icons.groups_rounded, size: 20),
                         SizedBox(height: 2),
-                        FittedBox(fit: BoxFit.scaleDown, child: Text('Clubs', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600))),
-                      ],
-                    ),
-                  ),
-                  Tab(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.people_alt_rounded, size: 20),
-                        SizedBox(height: 2),
-                        FittedBox(fit: BoxFit.scaleDown, child: Text('Users', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600))),
+                        Text('Clubs', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
@@ -956,17 +927,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       children: [
                         Icon(Icons.verified_user_rounded, size: 20),
                         SizedBox(height: 2),
-                        FittedBox(fit: BoxFit.scaleDown, child: Text('President Apps', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600))),
-                      ],
-                    ),
-                  ),
-                  Tab(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.person_rounded, size: 20),
-                        SizedBox(height: 2),
-                        FittedBox(fit: BoxFit.scaleDown, child: Text('Profile', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600))),
+                        Text('President Apps', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
@@ -975,8 +936,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             ),
             const SizedBox(height: 10),
 
-            // Greeting & Subtitle Area
-            Padding(
+            // The greeting belongs only to the moderation dashboard.
+            if (_currentTabIndex == 0) Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
               child: Align(
                 alignment: Alignment.centerLeft,
@@ -988,18 +949,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      _currentTabIndex == 0
-                          ? 'Review pending approvals, monitor events, and manage system access.'
-                          : _currentTabIndex == 1
-                              ? 'Monitor and manage all active campus-wide events.'
-                              : _currentTabIndex == 2
-                                  ? 'Manage registered university clubs and student societies.'
-                                  : _currentTabIndex == 3
-                                      ? 'Manage registered students and club leadership access roles.'
-                                      : _currentTabIndex == 4
-                                          ? 'Review student requests to become Club Presidents.'
-                                          : 'Manage administrator account settings and preferences.',
+                    const Text(
+                      'Review pending approvals, monitor events, and manage system access.',
                       style: const TextStyle(color: Colors.white70, fontSize: 12.5),
                     ),
                   ],
@@ -1061,20 +1012,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   spacing: 8,
                   runSpacing: 8,
                   alignment: WrapAlignment.center,
-                  children: [
-                    _buildUserFilterPill('All'),
-                    _buildUserFilterPill('Students'),
-                    _buildUserFilterPill('Presidents'),
-                  ],
-                ),
-              ),
-            ] else if (_currentTabIndex == 4) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
                   children: ['All', 'Pending', 'Approved', 'Rejected']
                       .map(_buildPresidentFilterPill)
                       .toList(),
@@ -1091,13 +1028,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   _buildModerationTab(),
                   _buildEventsTab(),
                   _buildClubsTab(),
-                  _buildUsersTab(),
                   _buildPresidentApplicationsTab(),
-                  _buildProfileTab(),
                 ],
               ),
             ),
           ],
+        ),
+      ),
+    ),
+    );
+  }
+
+  void _openProfileScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+          child: Scaffold(
+            backgroundColor: navy,
+            appBar: AppBar(
+              backgroundColor: navy,
+              foregroundColor: Colors.white,
+              title: const Text('Admin Profile', style: TextStyle(fontSize: 18)),
+            ),
+            body: SafeArea(child: _buildProfileTab()),
+          ),
         ),
       ),
     );
@@ -1335,7 +1290,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(status.toUpperCase(),
-                              style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                              style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
                           ),
                         ],
                       ),
@@ -1351,7 +1306,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       if ((item['created_at'] ?? '').toString().isNotEmpty) ...[
                         const SizedBox(height: 8),
                         Text('Submitted: ${item['created_at']}',
-                          style: const TextStyle(color: kTextGrey, fontSize: 10)),
+                          style: const TextStyle(color: kTextGrey, fontSize: 12)),
                       ],
                       const SizedBox(height: 10),
                       OutlinedButton.icon(
@@ -1383,7 +1338,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       ] else if ((item['review_reason'] ?? '').toString().isNotEmpty) ...[
                         const SizedBox(height: 8),
                         Text('Review note: ${item['review_reason']}',
-                          style: const TextStyle(color: kTextGrey, fontSize: 11)),
+                          style: const TextStyle(color: kTextGrey, fontSize: 12)),
                       ],
                     ],
                   ),
@@ -1467,19 +1422,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(color: purple.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-                                child: Text(item['category'], style: const TextStyle(color: purple, fontSize: 10, fontWeight: FontWeight.bold)),
+                                child: Text(item['category'], style: const TextStyle(color: purple, fontSize: 12, fontWeight: FontWeight.bold)),
                               ),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-                                child: Text(status, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                                child: Text(status, style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
                               ),
                             ],
                           ),
                           const SizedBox(height: 8),
                           Text(item['title'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: navy)),
                           const SizedBox(height: 4),
-                          Text('Organized by: ${item['organizer']}', style: const TextStyle(color: blue, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                          Text('Organized by: ${item['organizer']}', style: const TextStyle(color: blue, fontSize: 12, fontWeight: FontWeight.w600)),
                           const SizedBox(height: 8),
                           Text(item['description'], style: const TextStyle(color: kTextGrey, fontSize: 12)),
                           const SizedBox(height: 12),
@@ -1487,11 +1442,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                             children: [
                               const Icon(Icons.calendar_today, size: 13, color: blue),
                               const SizedBox(width: 4),
-                              Text(item['date'], style: const TextStyle(color: navy, fontSize: 11, fontWeight: FontWeight.w600)),
+                              Text(item['date'], style: const TextStyle(color: navy, fontSize: 12, fontWeight: FontWeight.w600)),
                               const SizedBox(width: 12),
                               const Icon(Icons.location_on, size: 14, color: blue),
                               const SizedBox(width: 4),
-                              Expanded(child: Text(item['location'], style: const TextStyle(color: navy, fontSize: 11, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                              Expanded(child: Text(item['location'], style: const TextStyle(color: navy, fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
                             ],
                           ),
                           const Padding(padding: EdgeInsets.symmetric(vertical: 12.0), child: Divider(height: 1, color: Color(0xFFE2E8F0))),
@@ -1587,29 +1542,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(color: purple.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-                                child: Text(event['category'], style: const TextStyle(color: purple, fontSize: 10, fontWeight: FontWeight.bold)),
+                                child: Text(event['category'], style: const TextStyle(color: purple, fontSize: 12, fontWeight: FontWeight.bold)),
                               ),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(color: event['timing'] == 'Upcoming' ? blue.withValues(alpha: 0.12) : Colors.grey.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-                                child: Text(event['timing'], style: TextStyle(color: event['timing'] == 'Upcoming' ? blue : Colors.grey.shade700, fontSize: 10, fontWeight: FontWeight.bold)),
+                                child: Text(event['timing'], style: TextStyle(color: event['timing'] == 'Upcoming' ? blue : Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
                               ),
                             ],
                           ),
                           const SizedBox(height: 8),
                           Text(event['title'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: navy)),
                           const SizedBox(height: 4),
-                          Text('Organized by: ${event['organizer']}', style: const TextStyle(fontSize: 11.5, color: blue, fontWeight: FontWeight.w600)),
+                          Text('Organized by: ${event['organizer']}', style: const TextStyle(fontSize: 12, color: blue, fontWeight: FontWeight.w600)),
                           const SizedBox(height: 8),
                           Row(
                             children: [
                               const Icon(Icons.calendar_today, size: 13, color: blue),
                               const SizedBox(width: 4),
-                              Text(event['date'], style: const TextStyle(color: navy, fontSize: 11, fontWeight: FontWeight.w600)),
+                              Text(event['date'], style: const TextStyle(color: navy, fontSize: 12, fontWeight: FontWeight.w600)),
                               const SizedBox(width: 12),
                               const Icon(Icons.location_on, size: 14, color: blue),
                               const SizedBox(width: 4),
-                              Expanded(child: Text(event['location'], style: const TextStyle(color: navy, fontSize: 11, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                              Expanded(child: Text(event['location'], style: const TextStyle(color: navy, fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
                             ],
                           ),
                           const SizedBox(height: 6),
@@ -1680,7 +1635,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(club['category'], style: const TextStyle(color: purple, fontSize: 10, fontWeight: FontWeight.bold)),
+                                    Text(club['category'], style: const TextStyle(color: purple, fontSize: 12, fontWeight: FontWeight.bold)),
                                     InkWell(
                                       onTap: () => _showChangeClubStatusDialog(club),
                                       child: Container(
@@ -1689,7 +1644,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Text(status, style: TextStyle(color: statusTextColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                                            Text(status, style: TextStyle(color: statusTextColor, fontSize: 12, fontWeight: FontWeight.bold)),
                                             const SizedBox(width: 3),
                                             Icon(Icons.edit, size: 10, color: statusTextColor),
                                           ],
@@ -1721,85 +1676,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     );
   }
 
-  // Tab 3: Users & Role Management View
-  Widget _buildUsersTab() {
-    final users = _filteredUsers;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0)), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 3))]),
-            child: Row(
-              children: const [
-                Icon(Icons.admin_panel_settings, color: blue, size: 20),
-                SizedBox(width: 10),
-                Expanded(child: Text('Manage user access roles across Nexora student accounts.', style: TextStyle(color: navy, fontSize: 12.5, fontWeight: FontWeight.w600))),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          users.isEmpty
-              ? const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 32.0), child: Text('No users found for this filter.', style: TextStyle(color: Colors.white70, fontSize: 13))))
-              : ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: users.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    final bool isPresident = user['role'] == 'Club President';
-
-                    return Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0)), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))]),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: isPresident ? purple : blue,
-                            child: Text(user['name'][0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(user['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: navy)),
-                                const SizedBox(height: 2),
-                                Text(user['email'], style: const TextStyle(color: kTextGrey, fontSize: 11.5)),
-                                const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(color: isPresident ? purple.withValues(alpha: 0.12) : blue.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-                                  child: Text(user['role'], style: TextStyle(color: isPresident ? purple : blue, fontSize: 10, fontWeight: FontWeight.bold)),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Switch(
-                            value: isPresident,
-                            activeThumbColor: purple,
-                            onChanged: (val) {
-                              setState(() {
-                                user['role'] = val ? 'Club President' : 'Student';
-                                _systemNotifications.insert(0, 'Role updated for ${user['name']} to ${user['role']}.');
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-        ],
-      ),
-    );
-  }
-
-  // Tab 4: Profile View
+  // Profile screen, opened from the account control in the dashboard header.
   Widget _buildProfileTab() {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1842,7 +1719,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(12), border: Border.all(color: blue.withValues(alpha: 0.3))),
-                child: Text('Admin ID: $_adminId', style: const TextStyle(color: blue, fontSize: 11, fontWeight: FontWeight.bold)),
+                child: Text('Admin ID: $_adminId', style: const TextStyle(color: blue, fontSize: 12, fontWeight: FontWeight.bold)),
               ),
               const SizedBox(height: 14),
               OutlinedButton.icon(
@@ -1939,7 +1816,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           children: [
             Text(value, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 2),
-            Text(label, style: const TextStyle(color: navy, fontSize: 11, fontWeight: FontWeight.w600)),
+            Text(label, style: const TextStyle(color: navy, fontSize: 12, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -2010,20 +1887,4 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     );
   }
 
-  Widget _buildUserFilterPill(String category) {
-    bool isSelected = _selectedUserFilter == category;
-    return ChoiceChip(
-      label: Text(category),
-      selected: isSelected,
-      onSelected: (selected) => setState(() => _selectedUserFilter = category),
-      selectedColor: blue,
-      backgroundColor: Colors.white,
-      labelStyle: TextStyle(
-        color: isSelected ? Colors.white : navy, 
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600, 
-        fontSize: 12,
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: isSelected ? blue : const Color(0xFFCBD5E1))),
-    );
-  }
 }
