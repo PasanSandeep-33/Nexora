@@ -34,9 +34,10 @@ class _ClubsTabState extends State<ClubsTab> {
   List<Club> _clubs = [];
   Map<String, dynamic>? _application;
   bool _loading = true;
+  List<Map<String, dynamic>> _presidentClubs = [];
   String? _error;
 
-  String get _status => (_application?['status'] ?? '').toString().toLowerCase();
+  String get _status => ((_application?['application'] is Map ? _application!['application']['status'] : _application?['status']) ?? '').toString().toLowerCase();
 
   @override
   void initState() {
@@ -45,29 +46,55 @@ class _ClubsTabState extends State<ClubsTab> {
   }
 
   Future<void> _loadData() async {
-    if (mounted) setState(() { _loading = true; _error = null; });
-    try {
-      final clubs = await ApiService.getClubs();
-      final application = await ApiService.getMyPresidentApplication();
-      if (!mounted) return;
+    if (mounted) {
       setState(() {
-        _clubs = clubs;
-        _application = application;
-        _loading = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _clubs = widget.clubs;
-        _error = error.toString().replaceFirst('Exception: ', '');
-        _loading = false;
+        _loading = true;
+        _error = null;
       });
     }
+
+    // Fetch the two resources independently. A failure to fetch clubs must
+    // never hide a President Application that has already been approved.
+    List<Club>? loadedClubs;
+    Map<String, dynamic>? loadedApplication;
+    final errors = <String>[];
+
+    try {
+      loadedApplication = await ApiService.getMyPresidentApplication();
+    } catch (error) {
+      errors.add('President status: ${error.toString().replaceFirst('Exception: ', '')}');
+    }
+
+    try {
+      loadedClubs = await ApiService.getClubs();
+    } catch (error) {
+      errors.add('Clubs: ${error.toString().replaceFirst('Exception: ', '')}');
+    }
+
+    List<Map<String, dynamic>>? ownedClubs;
+    final status = ((loadedApplication?['application'] is Map
+        ? loadedApplication!['application']['status']
+        : loadedApplication?['status']) ?? '').toString().toLowerCase();
+    if (status == 'approved') {
+      try { ownedClubs = await ApiService.getMyPresidentClubs(); }
+      catch (error) { errors.add('President clubs: $error'); }
+    }
+    if (!mounted) return;
+    setState(() {
+      if (ownedClubs != null) _presidentClubs = ownedClubs;
+      _clubs = loadedClubs ?? (widget.clubs.isNotEmpty ? widget.clubs : _clubs);
+      // Preserve a previously verified status if refreshing fails.
+      if (loadedApplication != null || !errors.any((e) => e.startsWith('President status:'))) {
+        _application = loadedApplication;
+      }
+      _error = errors.isEmpty ? null : errors.join(' | ');
+      _loading = false;
+    });
   }
 
   Future<void> _openApplication() async {
     final submitted = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => const PresidentApplicationPage()),
+      MaterialPageRoute(builder: (_) => const ClubRegistrationPage()),
     );
     if (submitted == true && mounted) await _loadData();
   }
@@ -77,6 +104,13 @@ class _ClubsTabState extends State<ClubsTab> {
       MaterialPageRoute(builder: (_) => const ClubRegistrationPage()),
     );
     if (submitted == true && mounted) await _loadData();
+  }
+
+  Future<void> _openCreateEvent() async {
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => AddEventPage(clubs: _presidentClubs)),
+    );
+    if (created == true && mounted) await _loadData();
   }
 
   @override
@@ -106,31 +140,38 @@ class _ClubsTabState extends State<ClubsTab> {
           else if (status == 'approved')
             _actionCard(
               icon: Icons.add_business_rounded,
-              title: 'Register a New Club',
-              subtitle: 'Your President Application is approved. Submit a club for administrator review.',
-              action: 'Register Club',
+              title: 'Add New Event',
+              subtitle: _presidentClubs.isEmpty ? 'No approved club is linked to your account. Please contact an administrator.' : 'Create and publish an event for your approved club.',
+              action: _presidentClubs.isEmpty ? 'Refresh' : 'Create Event',
               color: cyan,
-              onTap: _openClubRegistration,
+              onTap: _presidentClubs.isEmpty ? _loadData : _openCreateEvent,
             )
           else if (status == 'pending')
             _statusCard(
               title: 'President Application Pending',
-              message: 'Your application is waiting for administrator review. Club registration becomes available after approval.',
+              message: 'Your club and President application is awaiting administrator approval.',
               icon: Icons.hourglass_top_rounded,
               color: Colors.orangeAccent,
             )
           else if (status == 'rejected')
             _statusCard(
               title: 'President Application Rejected',
-              message: (_application?['review_reason'] ?? 'Your application was not approved.').toString(),
+              message: ((_application?['application'] is Map ? _application!['application']['review_reason'] : _application?['review_reason']) ?? 'Your application was not approved.').toString(),
               icon: Icons.cancel_outlined,
               color: Colors.redAccent,
+            )
+          else if (_error != null && _error!.contains('President status:') && _application == null)
+            _statusCard(
+              title: 'Unable to verify President status',
+              message: 'Please retry before submitting another application.',
+              icon: Icons.error_outline,
+              color: Colors.orangeAccent,
             )
           else
             _actionCard(
               icon: Icons.workspace_premium_outlined,
-              title: 'Become a Club President',
-              subtitle: 'Apply to become a Club President. Administrator approval is required before registering a club.',
+              title: 'Register a Club & Apply as President & Become President',
+              subtitle: 'Submit your club details and appointment letter for one administrator approval.',
               action: 'Apply Now',
               color: cyan,
               onTap: _openApplication,
@@ -510,7 +551,7 @@ Future<void> _submitRegistration() async {
 
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('$_baseUrl/api/club-registration/'),
+        Uri.parse('$_baseUrl/api/president-applications/'),
       );
       request.headers['Authorization'] = 'Bearer $token';
       request.fields['club_name'] = _clubNameController.text.trim();
@@ -523,7 +564,7 @@ Future<void> _submitRegistration() async {
       final fileBytes = await file.readAsBytes();
 
       final multipartFile = http.MultipartFile.fromBytes(
-        'appointment_letter',
+        'supporting_document',
         fileBytes,
         filename: file.name,
       );
@@ -556,7 +597,7 @@ request.files.add(multipartFile);
               ],
             ),
             content: const Text(
-              'Your club registration request has been submitted and is pending admin review. You will receive the President role only after approval.',
+              'Your club and President application is pending admin review. Approval will create your club and assign you as its President.',
             ),
             actions: [
               TextButton(
@@ -660,7 +701,7 @@ request.files.add(multipartFile);
         foregroundColor: Colors.white,
         elevation: 0,
         title: const Text(
-          'Register a Club',
+          'Register a Club & Apply as President',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
       ),
@@ -684,7 +725,7 @@ request.files.add(multipartFile);
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Submit your club details and official appointment letter. The Nexora administrator will review your application before the club is registered.',
+                        'Submit your club details and official appointment letter. One Nexora administrator approval will create your club and assign you as President.',
                         style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.45),
                       ),
                     ),
@@ -861,14 +902,14 @@ request.files.add(multipartFile);
                           child: CircularProgressIndicator(strokeWidth: 2.3, color: Colors.white),
                         )
                       : const Text(
-                          'Submit Registration',
+                          'Submit Application',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                         ),
                 ),
               ),
               const SizedBox(height: 12),
               const Text(
-                'Note: Submitting this form does not immediately make you a club president. The role is assigned after an administrator approves the application.',
+                'Your club and President membership are created together after approval.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white54, fontSize: 10.5, height: 1.4),
               ),
@@ -888,4 +929,154 @@ request.files.add(multipartFile);
       ),
     );
   }
+}
+
+
+class AddEventPage extends StatefulWidget {
+  final List<Map<String, dynamic>> clubs;
+  const AddEventPage({super.key, required this.clubs});
+  @override
+  State<AddEventPage> createState() => _AddEventPageState();
+}
+
+class _AddEventPageState extends State<AddEventPage> {
+  final _form = GlobalKey<FormState>();
+  final _title = TextEditingController();
+  final _description = TextEditingController();
+  final _location = TextEditingController();
+  final _capacity = TextEditingController();
+  String _category = 'Technology';
+  int? _clubId;
+  DateTime? _date;
+  TimeOfDay? _time;
+  bool _saving = false;
+  static const _navy = Color(0xFF050B25);
+  static const _cyan = Color(0xFF19D9ED);
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.clubs.isNotEmpty) _clubId = widget.clubs.first['club_id'] as int;
+  }
+
+  @override
+  void dispose() {
+    _title.dispose(); _description.dispose(); _location.dispose(); _capacity.dispose();
+    super.dispose();
+  }
+
+  InputDecoration _dec(String hint) => InputDecoration(
+    hintText: hint, hintStyle: const TextStyle(color: Colors.white54),
+    filled: true, fillColor: const Color(0xFF102451),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.white30)),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _cyan)),
+  );
+
+  Widget _label(String text) => Padding(
+    padding: const EdgeInsets.only(top: 16, bottom: 8),
+    child: Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+  );
+
+  Future<void> _submit() async {
+    if (_saving || !_form.currentState!.validate()) return;
+    if (_clubId == null || _date == null || _time == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select your club, date and time.')));
+      return;
+    }
+    final dateTime = DateTime(_date!.year, _date!.month, _date!.day, _time!.hour, _time!.minute);
+    if (!dateTime.isAfter(DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Choose a future date and time.')));
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await ApiService.createEvent(
+        clubId: _clubId!, title: _title.text, category: _category,
+        description: _description.text, dateTime: dateTime,
+        location: _location.text, capacity: int.parse(_capacity.text),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Event published successfully.')));
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: _navy,
+    appBar: AppBar(title: const Text('Add New Event'), backgroundColor: _navy, foregroundColor: Colors.white),
+    body: Form(key: _form, child: ListView(padding: const EdgeInsets.all(20), children: [
+      const Text('Create an event for your approved club. The event will be published immediately.',
+        style: TextStyle(color: Colors.white70)),
+      _label('Organizing club'),
+      DropdownButtonFormField<int>(
+        initialValue: _clubId, dropdownColor: const Color(0xFF102451),
+        style: const TextStyle(color: Colors.white), decoration: _dec('Choose club'),
+        items: widget.clubs.map((c) => DropdownMenuItem<int>(
+          value: c['club_id'] as int, child: Text(c['club_name'].toString()),
+        )).toList(),
+        onChanged: (v) => setState(() => _clubId = v),
+        validator: (v) => v == null ? 'Choose a club' : null,
+      ),
+      _label('Event title'),
+      TextFormField(controller: _title, style: const TextStyle(color: Colors.white),
+        decoration: _dec('Nexora Annual Hackathon 2026'), maxLength: 200,
+        validator: (v) => v == null || v.trim().isEmpty ? 'Enter event title' : null),
+      _label('Category'),
+      DropdownButtonFormField<String>(
+        initialValue: _category, dropdownColor: const Color(0xFF102451),
+        style: const TextStyle(color: Colors.white), decoration: _dec('Category'),
+        items: ['Technology', 'Cultural', 'Sports', 'Academic', 'Arts', 'Social Service', 'Other']
+          .map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+        onChanged: (v) => setState(() => _category = v ?? 'Technology'),
+      ),
+      _label('Description'),
+      TextFormField(controller: _description, style: const TextStyle(color: Colors.white),
+        decoration: _dec('Describe the event'), minLines: 3, maxLines: 5,
+        validator: (v) => v == null || v.trim().isEmpty ? 'Enter a description' : null),
+      _label('Date and time'),
+      Row(children: [
+        Expanded(child: OutlinedButton.icon(
+          icon: const Icon(Icons.calendar_month),
+          label: Text(_date == null ? 'Choose date' : '${_date!.day}/${_date!.month}/${_date!.year}'),
+          onPressed: () async {
+            final d = await showDatePicker(context: context, initialDate: DateTime.now().add(const Duration(days: 1)),
+              firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 1825)));
+            if (d != null && mounted) setState(() => _date = d);
+          },
+        )),
+        const SizedBox(width: 8),
+        Expanded(child: OutlinedButton.icon(
+          icon: const Icon(Icons.access_time),
+          label: Text(_time == null ? 'Choose time' : _time!.format(context)),
+          onPressed: () async {
+            final t = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+            if (t != null && mounted) setState(() => _time = t);
+          },
+        )),
+      ]),
+      _label('Venue'),
+      TextFormField(controller: _location, style: const TextStyle(color: Colors.white),
+        decoration: _dec('Innovation Center'),
+        validator: (v) => v == null || v.trim().isEmpty ? 'Enter venue' : null),
+      _label('Total available spots'),
+      TextFormField(controller: _capacity, keyboardType: TextInputType.number,
+        style: const TextStyle(color: Colors.white), decoration: _dec('100'),
+        validator: (v) => (int.tryParse(v ?? '') ?? 0) <= 0 ? 'Enter a positive whole number' : null),
+      const SizedBox(height: 28),
+      ElevatedButton(
+        onPressed: _saving ? null : _submit,
+        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3478FF), foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(52)),
+        child: Text(_saving ? 'Submitting...' : 'Publish Event'),
+      ),
+      const SizedBox(height: 20),
+    ])),
+  );
 }

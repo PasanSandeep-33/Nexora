@@ -3,11 +3,14 @@ from .models import PresidentApplication
 
 
 class PresidentApplicationCreateSerializer(serializers.Serializer):
-    reason = serializers.CharField(
-        min_length=20,
-        max_length=3000,
-        trim_whitespace=True,
-    )
+    club_name = serializers.CharField(max_length=150, trim_whitespace=True)
+    category = serializers.CharField(max_length=100, trim_whitespace=True)
+    description = serializers.CharField(max_length=2000, trim_whitespace=True)
+
+    def validate_club_name(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Club name is required.")
+        return value.strip()
 
 
 class PresidentApplicationReadSerializer(serializers.ModelSerializer):
@@ -21,7 +24,7 @@ class PresidentApplicationReadSerializer(serializers.ModelSerializer):
         model = PresidentApplication
         fields = [
             "id", "applicant", "applicant_name", "applicant_email",
-            "reason", "status", "review_reason", "created_at",
+            "reason", "club_name", "category", "description", "approved_club", "status", "review_reason", "created_at",
             "reviewed_at", "reviewed_by", "reviewed_by_name",
         ]
         read_only_fields = fields

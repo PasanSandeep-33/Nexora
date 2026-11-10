@@ -7,13 +7,46 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 
 from rest_framework import serializers
-from .models import Events, Users
+from .models import Events, Users, Clubs
 
 
 class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Events
         fields = '__all__'
+
+
+class EventCreateSerializer(serializers.ModelSerializer):
+    club = serializers.PrimaryKeyRelatedField(queryset=Clubs.objects.all(), required=True)
+    class Meta:
+        model = Events
+        fields = ['title', 'description', 'category', 'event_date', 'location', 'capacity', 'club']
+
+    def validate_title(self, value):
+        if not value.strip():
+            raise serializers.ValidationError('Event title is required.')
+        return value.strip()
+
+    def validate_location(self, value):
+        if not value.strip():
+            raise serializers.ValidationError('Venue is required.')
+        return value.strip()
+
+    def validate_capacity(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Capacity must be greater than zero.')
+        return value
+
+    def validate_event_date(self, value):
+        from django.utils import timezone
+        if value <= timezone.now():
+            raise serializers.ValidationError('Event date must be in the future.')
+        return value
+
+    def validate_club(self, value):
+        if value is None:
+            raise serializers.ValidationError('Choose a club.')
+        return value
 
 
 class SignupSerializer(serializers.ModelSerializer):

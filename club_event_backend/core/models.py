@@ -369,7 +369,11 @@ class PresidentApplication(models.Model):
         on_delete=models.PROTECT,
         related_name="president_applications",
     )
-    reason = models.TextField()
+    reason = models.TextField()  # Retained for legacy applications
+    club_name = models.CharField(max_length=150, null=True, blank=True)
+    category = models.CharField(max_length=100, null=True, blank=True)
+    description = models.TextField(null=True, blank=True)
+    approved_club = models.ForeignKey(Clubs, on_delete=models.PROTECT, null=True, blank=True, related_name="president_applications")
     proof_file_key = models.TextField()
     status = models.CharField(
         max_length=20,

@@ -1,0 +1,74 @@
+"""Nexora event submission and admin review endpoints."""
+from django.db import transaction
+from django.db.models import Q
+from django.utils import timezone
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+
+from .models import Clubs, ClubMemberships, Events, EventApprovals, PresidentApplication, Users
+from .serializers import EventCreateSerializer, EventSerializer
+
+
+def _owned_clubs(user):
+    return Clubs.objects.filter(
+        Q(user_id=user.user_id) |
+        Q(clubmemberships__user_id=user.user_id, clubmemberships__member_role__iexact='president')
+    ).distinct()
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_president_clubs(request):
+    clubs = _owned_clubs(request.user).order_by('club_name')
+    return Response({'clubs': [{'club_id': c.club_id, 'club_name': c.club_name} for c in clubs]})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def submit_event(request):
+    if str(request.user.role).lower() != 'student':
+        return Response({'detail': 'Approved Club President status is required.'}, status=403)
+
+    serializer = EventCreateSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    club = serializer.validated_data['club']
+    if not _owned_clubs(request.user).filter(pk=club.pk).exists():
+        return Response({'detail': 'You may create events only for a club you lead.'}, status=403)
+
+    event = serializer.save(created_by=Users.objects.get(pk=request.user.user_id), approval_status='approved')
+    return Response(EventSerializer(event).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def pending_events(request):
+    if str(request.user.role).lower() != 'admin':
+        return Response({'detail': 'Administrator access required.'}, status=403)
+    events = Events.objects.filter(approval_status='approved').order_by('event_date')
+    return Response(EventSerializer(events, many=True).data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def review_event(request, event_id):
+    if str(request.user.role).lower() != 'admin':
+        return Response({'detail': 'Administrator access required.'}, status=403)
+    decision = request.data.get('decision')
+    if decision not in ('approved', 'rejected'):
+        return Response({'decision': ['Use approved or rejected.']}, status=400)
+    comments = str(request.data.get('comments', '')).strip()
+    if decision == 'rejected' and not comments:
+        return Response({'comments': ['Provide a rejection reason.']}, status=400)
+    with transaction.atomic():
+        event = Events.objects.select_for_update().filter(pk=event_id).first()
+        if event is None:
+            return Response({'detail': 'Event not found.'}, status=404)
+        if event.approval_status != 'pending':
+            return Response({'detail': 'Event already reviewed.'}, status=409)
+        event.approval_status = decision
+        event.save(update_fields=['approval_status'])
+        EventApprovals.objects.create(event=event, admin=Users.objects.get(pk=request.user.user_id),
+                                      decision=decision, reviewed_at=timezone.now(), comments=comments)
+    return Response(EventSerializer(event).data)
