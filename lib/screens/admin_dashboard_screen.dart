@@ -38,7 +38,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   late TabController _tabController;
   final _storage = const FlutterSecureStorage();
   
-  int _currentTabIndex = 0; // 0: Moderation, 1: Events, 2: Clubs, 3: Users, 4: Profile
+  int _currentTabIndex = 0; // Moderation, Events, Clubs, Users, President Applications, Profile
+  String _selectedPresidentFilter = 'All';
+  bool _isLoadingPresidentApplications = false;
+  String? _presidentApplicationsError;
+  List<Map<String, dynamic>> _presidentApplications = [];
   String _selectedModerationFilter = 'All';
   String _selectedEventFilter = 'All';
   String _selectedClubFilter = 'All';
@@ -182,9 +186,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _tabController.addListener(_handleTabSelection);
-    _loadSavedAdminProfile(); 
+    _loadSavedAdminProfile();
+    _loadPresidentApplications(); 
   }
 
   void _handleTabSelection() {
@@ -795,8 +800,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       GestureDetector(
                         onTap: () {
                           setState(() {
-                            _currentTabIndex = 4;
-                            _tabController.animateTo(4);
+                            _currentTabIndex = 5;
+                            _tabController.animateTo(5);
                           });
                         },
                         child: Container(
@@ -949,6 +954,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+                        Icon(Icons.verified_user_rounded, size: 20),
+                        SizedBox(height: 2),
+                        FittedBox(fit: BoxFit.scaleDown, child: Text('President Apps', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600))),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
                         Icon(Icons.person_rounded, size: 20),
                         SizedBox(height: 2),
                         FittedBox(fit: BoxFit.scaleDown, child: Text('Profile', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600))),
@@ -982,7 +997,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                   ? 'Manage registered university clubs and student societies.'
                                   : _currentTabIndex == 3
                                       ? 'Manage registered students and club leadership access roles.'
-                                      : 'Manage administrator account settings and preferences.',
+                                      : _currentTabIndex == 4
+                                          ? 'Review student requests to become Club Presidents.'
+                                          : 'Manage administrator account settings and preferences.',
                       style: const TextStyle(color: Colors.white70, fontSize: 12.5),
                     ),
                   ],
@@ -1051,6 +1068,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   ],
                 ),
               ),
+            ] else if (_currentTabIndex == 4) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: ['All', 'Pending', 'Approved', 'Rejected']
+                      .map(_buildPresidentFilterPill)
+                      .toList(),
+                ),
+              ),
             ],
             const SizedBox(height: 10),
 
@@ -1063,6 +1092,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   _buildEventsTab(),
                   _buildClubsTab(),
                   _buildUsersTab(),
+                  _buildPresidentApplicationsTab(),
                   _buildProfileTab(),
                 ],
               ),
@@ -1070,6 +1100,296 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           ],
         ),
       ),
+    );
+  }
+
+
+  Future<void> _loadPresidentApplications() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingPresidentApplications = true;
+      _presidentApplicationsError = null;
+    });
+    try {
+      final result = await ApiService.getPresidentApplications();
+      if (!mounted) return;
+      setState(() {
+        _presidentApplications = result;
+        _isLoadingPresidentApplications = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _presidentApplicationsError = error.toString().replaceFirst('Exception: ', '');
+        _isLoadingPresidentApplications = false;
+      });
+    }
+  }
+
+  List<Map<String, dynamic>> get _filteredPresidentApplications {
+    var items = _presidentApplications;
+    if (_selectedPresidentFilter != 'All') {
+      items = items.where((item) =>
+        (item['status'] ?? '').toString().toLowerCase() ==
+        _selectedPresidentFilter.toLowerCase()).toList();
+    }
+    if (_searchQuery.trim().isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      items = items.where((item) =>
+        (item['applicant_name'] ?? '').toString().toLowerCase().contains(query) ||
+        (item['applicant_email'] ?? '').toString().toLowerCase().contains(query)).toList();
+    }
+    return items;
+  }
+
+  Widget _buildPresidentFilterPill(String value) {
+    final selected = _selectedPresidentFilter == value;
+    return ChoiceChip(
+      label: Text(value),
+      selected: selected,
+      onSelected: (_) => setState(() => _selectedPresidentFilter = value),
+      selectedColor: blue,
+      backgroundColor: Colors.white,
+      labelStyle: TextStyle(
+        color: selected ? Colors.white : navy,
+        fontWeight: FontWeight.w600,
+        fontSize: 12,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: selected ? blue : const Color(0xFFCBD5E1)),
+      ),
+    );
+  }
+
+  Future<void> _reviewPresidentApplication(Map<String, dynamic> item, bool approve) async {
+    final id = int.tryParse(item['id'].toString());
+    if (id == null) return;
+    final reasonController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(approve ? 'Approve President Application?' : 'Reject President Application?'),
+        content: approve
+            ? const Text('This student will be granted Club President status.')
+            : TextField(
+                controller: reasonController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Reason for rejection (optional)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: approve ? Colors.green : Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(approve ? 'Approve' : 'Reject'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      reasonController.dispose();
+      return;
+    }
+    try {
+      if (approve) {
+        await ApiService.approvePresidentApplication(id);
+      } else {
+        await ApiService.rejectPresidentApplication(
+          id, reviewReason: reasonController.text.trim(),
+        );
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(approve ? 'Application approved.' : 'Application rejected.')),
+      );
+      await _loadPresidentApplications();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update application: $error')),
+      );
+    } finally {
+      reasonController.dispose();
+    }
+  }
+
+  Future<void> _showPresidentSupportingDocument(int id) async {
+    try {
+      final response = await ApiService.getPresidentApplicationDocument(id);
+      if (!mounted) return;
+      final contentType = response.headers['content-type'] ?? '';
+      if (contentType.startsWith('image/')) {
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) => Dialog(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Image.memory(response.bodyBytes, fit: BoxFit.contain),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Close'),
+                ),
+              ],
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Document retrieved. PDF preview is not supported in this screen yet.')),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to open supporting document: $error')),
+      );
+    }
+  }
+
+  Widget _buildPresidentApplicationsTab() {
+    final applications = _filteredPresidentApplications;
+    if (_isLoadingPresidentApplications) {
+      return const Center(child: CircularProgressIndicator(color: cyan));
+    }
+    if (_presidentApplicationsError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.orange, size: 36),
+              const SizedBox(height: 10),
+              Text(_presidentApplicationsError!, textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70)),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: _loadPresidentApplications,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _loadPresidentApplications,
+      child: applications.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(24),
+              children: const [
+                SizedBox(height: 70),
+                Icon(Icons.inbox_outlined, color: Colors.white54, size: 42),
+                SizedBox(height: 12),
+                Center(child: Text('No President Applications found.',
+                    style: TextStyle(color: Colors.white70))),
+              ],
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              itemCount: applications.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final item = applications[index];
+                final status = (item['status'] ?? 'pending').toString().toLowerCase();
+                final pending = status == 'pending';
+                final statusColor = status == 'approved'
+                    ? Colors.green : status == 'rejected' ? Colors.redAccent : Colors.orange;
+                final id = int.tryParse(item['id'].toString()) ?? 0;
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: Text(
+                            (item['applicant_name'] ?? 'Student').toString(),
+                            style: const TextStyle(color: navy, fontWeight: FontWeight.bold, fontSize: 15),
+                          )),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(status.toUpperCase(),
+                              style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      Text((item['applicant_email'] ?? '').toString(),
+                        style: const TextStyle(color: kTextGrey, fontSize: 12)),
+                      const SizedBox(height: 12),
+                      const Text('Proposed club',
+                        style: TextStyle(color: navy, fontWeight: FontWeight.bold, fontSize: 12)),
+                      const SizedBox(height: 4),
+                      Text('Name: ${item['club_name'] ?? 'Legacy application'}\nCategory: ${item['category'] ?? '-'}\nDescription: ${item['description'] ?? item['reason'] ?? '-'}',
+                        style: const TextStyle(color: kTextGrey, fontSize: 12)),
+                      if ((item['created_at'] ?? '').toString().isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text('Submitted: ${item['created_at']}',
+                          style: const TextStyle(color: kTextGrey, fontSize: 10)),
+                      ],
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: id == 0 ? null : () => _showPresidentSupportingDocument(id),
+                        icon: const Icon(Icons.attach_file, size: 16),
+                        label: const Text('View supporting document'),
+                      ),
+                      if (pending) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(child: ElevatedButton.icon(
+                              onPressed: () => _reviewPresidentApplication(item, true),
+                              icon: const Icon(Icons.check, size: 16),
+                              label: const Text('Approve'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green, foregroundColor: Colors.white,
+                              ),
+                            )),
+                            const SizedBox(width: 10),
+                            Expanded(child: OutlinedButton.icon(
+                              onPressed: () => _reviewPresidentApplication(item, false),
+                              icon: const Icon(Icons.close, size: 16),
+                              label: const Text('Reject'),
+                              style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent),
+                            )),
+                          ],
+                        ),
+                      ] else if ((item['review_reason'] ?? '').toString().isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text('Review note: ${item['review_reason']}',
+                          style: const TextStyle(color: kTextGrey, fontSize: 11)),
+                      ],
+                    ],
+                  ),
+                );
+              },
+            ),
     );
   }
 

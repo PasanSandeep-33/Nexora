@@ -50,20 +50,7 @@ class ApiService {
     if (response.statusCode == 201) {
       return Map<String, dynamic>.from(data);
     } else {
-      if (data is Map) {
-        final message = data['message'];
-        if (message is String && message.isNotEmpty) {
-          throw Exception(message);
-        }
-
-        for (final value in data.values) {
-          if (value is List && value.isNotEmpty) {
-            throw Exception(value.first.toString());
-          }
-        }
-      }
-
-      throw Exception('Unable to create your account. Please try again.');
+      throw Exception('Signup failed: $data');
     }
   }
 
@@ -231,21 +218,46 @@ static Future<bool> refreshSession() async {
 
   // Public API - Get clubs approved for public display.
   static Future<List<Club>> getClubs() async {
-    final response = await http.get(Uri.parse('$baseUrl/api/clubs/'))
-        .timeout(const Duration(seconds: 15));
-    if (response.statusCode != 200) {
-      throw Exception('Failed to load clubs (${response.statusCode}).');
-    }
+  final token = await AuthStorage.getToken();
+
+  if (token == null || token.isEmpty) {
+    throw Exception('Session expired. Please log in again.');
+  }
+
+  final response = await http.get(
+    Uri.parse('$baseUrl/api/clubs/'),
+    headers: {
+      'Authorization': 'Bearer $token',
+    },
+  ).timeout(const Duration(seconds: 15));
+
+  if (response.statusCode == 200) {
     final decoded = jsonDecode(response.body);
+
     final List<dynamic> items = decoded is List
         ? decoded
-        : (decoded is Map && decoded['results'] is List
+        : decoded is Map && decoded['results'] is List
             ? decoded['results'] as List<dynamic>
-            : <dynamic>[]);
-    return items.whereType<Map>()
-        .map((item) => Club.fromJson(Map<String, dynamic>.from(item)))
+            : <dynamic>[];
+
+    return items
+        .whereType<Map>()
+        .map(
+          (item) => Club.fromJson(
+            Map<String, dynamic>.from(item),
+          ),
+        )
         .toList();
   }
+
+  if (response.statusCode == 401) {
+    throw Exception('Session expired. Please log in again.');
+  }
+
+  throw Exception(
+    'Failed to load clubs (${response.statusCode}).',
+  );
+}
 
   // Get the current student's President Application; 404 means none exists.
   static Future<Map<String, dynamic>?> getMyPresidentApplication() async {
@@ -312,6 +324,118 @@ static Future<bool> refreshSession() async {
       throw Exception(decoded.entries.map((e) => '${e.key}: ${e.value}').join('\n'));
     }
     throw Exception('President application failed (${response.statusCode}).');
+  }
+
+
+  static Future<List<Map<String, dynamic>>> getPresidentApplications() async {
+    final token = await AuthStorage.getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Your admin session has expired. Please log in again.');
+    }
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/admin/president-applications/'),
+      headers: {'Authorization': 'Bearer $token'},
+    ).timeout(const Duration(seconds: 20));
+    dynamic decoded;
+    try { decoded = jsonDecode(response.body); } catch (_) { decoded = null; }
+    if (response.statusCode == 200) {
+      final List<dynamic> items = decoded is List
+          ? decoded
+          : (decoded is Map && decoded['results'] is List
+              ? decoded['results'] as List<dynamic> : <dynamic>[]);
+      return items.whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item)).toList();
+    }
+    final message = decoded is Map
+        ? (decoded['detail'] ?? decoded['message'] ?? decoded.toString())
+        : 'Unable to load President Applications (${response.statusCode}).';
+    throw Exception(message.toString());
+  }
+
+  static Future<void> approvePresidentApplication(int id) async {
+    await _presidentApplicationAction(id, 'approve', {});
+  }
+
+  static Future<void> rejectPresidentApplication(int id, {String reviewReason = ''}) async {
+    await _presidentApplicationAction(id, 'reject', {'review_reason': reviewReason});
+  }
+
+  static Future<void> _presidentApplicationAction(
+    int id, String action, Map<String, dynamic> body,
+  ) async {
+    final token = await AuthStorage.getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Your admin session has expired. Please log in again.');
+    }
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/admin/president-applications/$id/$action/'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    ).timeout(const Duration(seconds: 20));
+    if (response.statusCode >= 200 && response.statusCode < 300) return;
+    dynamic decoded;
+    try { decoded = jsonDecode(response.body); } catch (_) { decoded = null; }
+    final message = decoded is Map
+        ? (decoded['detail'] ?? decoded['message'] ?? decoded.toString())
+        : 'Could not $action application (${response.statusCode}).';
+    throw Exception(message.toString());
+  }
+
+  static Future<http.Response> getPresidentApplicationDocument(int id) async {
+    final token = await AuthStorage.getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Your admin session has expired. Please log in again.');
+    }
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/admin/president-applications/$id/document/'),
+      headers: {'Authorization': 'Bearer $token'},
+    ).timeout(const Duration(seconds: 30));
+    if (response.statusCode != 200) {
+      throw Exception('Unable to retrieve document (${response.statusCode}).');
+    }
+    return response;
+  }
+
+  // Clubs where the logged-in approved President can create events.
+  static Future<List<Map<String, dynamic>>> getMyPresidentClubs() async {
+    final token = await AuthStorage.getToken();
+    if (token == null || token.isEmpty) throw Exception('Please log in again.');
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/president/clubs/'),
+      headers: {'Authorization': 'Bearer $token'},
+    ).timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) {
+      throw Exception('Unable to load your clubs (${response.statusCode}).');
+    }
+    final data = jsonDecode(response.body);
+    return (data['clubs'] as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  static Future<void> createEvent({
+    required int clubId,
+    required String title,
+    required String category,
+    required String description,
+    required DateTime dateTime,
+    required String location,
+    required int capacity,
+  }) async {
+    final token = await AuthStorage.getToken();
+    if (token == null || token.isEmpty) throw Exception('Please log in again.');
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/events/create/'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'club': clubId, 'title': title.trim(), 'category': category,
+        'description': description.trim(), 'event_date': dateTime.toUtc().toIso8601String(),
+        'location': location.trim(), 'capacity': capacity,
+      }),
+    ).timeout(const Duration(seconds: 25));
+    if (response.statusCode == 201) return;
+    dynamic data;
+    try { data = jsonDecode(response.body); } catch (_) { data = null; }
+    throw Exception(data is Map ? (data['detail'] ?? data.toString()).toString()
+        : 'Could not submit event (${response.statusCode}).');
   }
 
   // Logout - Delete locally stored JWT token
