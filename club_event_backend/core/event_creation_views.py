@@ -21,6 +21,9 @@ def _owned_clubs(user):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def my_president_clubs(request):
+    approved = PresidentApplication.objects.filter(applicant_id=request.user.user_id, status='approved').exists()
+    if not approved:
+        return Response({'clubs': []})
     clubs = _owned_clubs(request.user).order_by('club_name')
     return Response({'clubs': [{'club_id': c.club_id, 'club_name': c.club_name} for c in clubs]})
 
@@ -28,7 +31,9 @@ def my_president_clubs(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def submit_event(request):
-    if str(request.user.role).lower() != 'student':
+    if str(request.user.role).lower() != 'club_admin' or not PresidentApplication.objects.filter(
+        applicant_id=request.user.user_id, status='approved'
+    ).exists():
         return Response({'detail': 'Approved Club President status is required.'}, status=403)
 
     serializer = EventCreateSerializer(data=request.data)
@@ -46,7 +51,7 @@ def submit_event(request):
 def pending_events(request):
     if str(request.user.role).lower() != 'admin':
         return Response({'detail': 'Administrator access required.'}, status=403)
-    events = Events.objects.filter(approval_status='approved').order_by('event_date')
+    events = Events.objects.filter(approval_status='pending').order_by('event_date')
     return Response(EventSerializer(events, many=True).data)
 
 

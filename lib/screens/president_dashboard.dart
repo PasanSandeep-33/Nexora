@@ -2,16 +2,15 @@ import 'dart:io';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
-
-void main() => runApp(
-  const MaterialApp(
-    home: PresidentDashboard(),
-    debugShowCheckedModeBanner: false,
-  ),
-);
+import '../services/api_service.dart';
 
 class PresidentDashboard extends StatefulWidget {
-  const PresidentDashboard({super.key});
+  final Map<String, dynamic> user;
+
+  const PresidentDashboard({
+    super.key,
+    required this.user,
+  });
 
   @override
   State<PresidentDashboard> createState() => _PresidentDashboardState();
@@ -31,10 +30,20 @@ class _PresidentDashboardState extends State<PresidentDashboard>
   static const Color kTextGrey = Color(0xFF64748B);
 
   // Club President Profile Details
-  String presidentName = "Raveen Perera";
-  String presidentEmail = "raveen.p@campus.nexora.edu";
-  String presidentClub = "IEEE Computer Society";
-  String presidentId = "NXR-PRES-2026-01";
+  late String presidentName;
+  late String presidentEmail;
+  late String presidentClub;
+  late String presidentId;
+
+  String _userValue(List<String> keys, {String fallback = ''}) {
+    for (final key in keys) {
+      final value = widget.user[key]?.toString().trim();
+      if (value != null && value.isNotEmpty && value.toLowerCase() != 'null') {
+        return value;
+      }
+    }
+    return fallback;
+  }
   File? profileImage; // Real image file selected from device gallery or camera
 
   // 1. Club Events List (CRUD Data)
@@ -110,6 +119,15 @@ class _PresidentDashboardState extends State<PresidentDashboard>
   @override
   void initState() {
     super.initState();
+    presidentName = _userValue(
+      ['full_name', 'full name', 'name', 'username'],
+      fallback: 'Club President',
+    );
+    presidentEmail = _userValue(['email'], fallback: 'Not available');
+    // Club details and president ID should come from authenticated API data
+    // when available, rather than displaying another president's sample details.
+    presidentClub = _userValue(['club_name', 'club'], fallback: 'Not assigned');
+    presidentId = _userValue(['president_id'], fallback: 'Not assigned');
     // 3 Separate Tabs: 0 = Events, 1 = Participants, 2 = Profile
     _tabController = TabController(length: 3, vsync: this);
   }
@@ -121,6 +139,20 @@ class _PresidentDashboardState extends State<PresidentDashboard>
     _descController.dispose();
     _venueController.dispose();
     super.dispose();
+  }
+
+  Future<void> _openCreateEventPage() async {
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const _PresidentCreateEventPage()),
+    );
+    if (!mounted) return;
+    if (created == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Event published successfully.')),
+      );
+      // Existing event cards are sample data. Refresh them from the events API
+      // once the President Dashboard is connected to the backend event list.
+    }
   }
 
   // ==================== CREATE / UPDATE EVENT DIALOG ====================
@@ -853,7 +885,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
   Widget _buildProfilePhoto({double radius = 18}) {
     String initial = presidentName.isNotEmpty
         ? presidentName[0].toUpperCase()
-        : 'R';
+        : 'P';
 
     return Container(
       padding: const EdgeInsets.all(2.5),
@@ -1047,7 +1079,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () => _showEventDialog(),
+              onPressed: _openCreateEventPage,
               icon: const Icon(Icons.add, color: Colors.white),
               label: const Text(
                 "Create New Club Event",
@@ -1950,4 +1982,226 @@ class _PresidentDashboardState extends State<PresidentDashboard>
       ],
     );
   }
+}
+
+
+/// Full-screen event publishing form for the authenticated club president.
+/// The organizing club is resolved from the server, never selected by the user.
+class _PresidentCreateEventPage extends StatefulWidget {
+  const _PresidentCreateEventPage();
+
+  @override
+  State<_PresidentCreateEventPage> createState() => _PresidentCreateEventPageState();
+}
+
+class _PresidentCreateEventPageState extends State<_PresidentCreateEventPage> {
+  static const Color _navy = Color(0xFF050B25);
+  static const Color _fieldBg = Color(0xFF172650);
+  static const Color _blue = Color(0xFF3478FF);
+
+  final _formKey = GlobalKey<FormState>();
+  final _title = TextEditingController();
+  final _description = TextEditingController();
+  final _venue = TextEditingController();
+  final _capacity = TextEditingController();
+  String _category = 'Technology';
+  DateTime? _date;
+  TimeOfDay? _time;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _description.dispose();
+    _venue.dispose();
+    _capacity.dispose();
+    super.dispose();
+  }
+
+  InputDecoration _decoration(String hint) => InputDecoration(
+    hintText: hint,
+    hintStyle: const TextStyle(color: Colors.white54),
+    filled: true,
+    fillColor: _fieldBg,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: Colors.white30),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: _blue, width: 1.5),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: Colors.redAccent),
+    ),
+  );
+
+  Widget _label(String label) => Padding(
+    padding: const EdgeInsets.only(top: 20, bottom: 9),
+    child: Text(label, style: const TextStyle(
+      color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600,
+    )),
+  );
+
+  Future<void> _publish() async {
+    if (_saving || !_formKey.currentState!.validate()) return;
+    if (_date == null || _time == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Choose an event date and time.')),
+      );
+      return;
+    }
+    final scheduled = DateTime(
+      _date!.year, _date!.month, _date!.day, _time!.hour, _time!.minute,
+    );
+    if (!scheduled.isAfter(DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Choose a future date and time.')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final clubs = await ApiService.getMyPresidentClubs();
+      if (clubs.length != 1) {
+        throw Exception(clubs.isEmpty
+          ? 'No approved club is linked to your account.'
+          : 'Multiple clubs are linked to your account. Automatic club selection is unavailable.');
+      }
+      final rawId = clubs.single['club_id'];
+      final clubId = rawId is int ? rawId : int.tryParse('$rawId');
+      if (clubId == null) throw Exception('The approved club has no valid ID.');
+      await ApiService.createEvent(
+        clubId: clubId,
+        title: _title.text.trim(),
+        category: _category,
+        description: _description.text.trim(),
+        dateTime: scheduled,
+        location: _venue.text.trim(),
+        capacity: int.parse(_capacity.text.trim()),
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(error.toString().replaceFirst('Exception: ', '')),
+      ));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: _navy,
+    appBar: AppBar(
+      title: const Text('Add New Event'),
+      backgroundColor: _navy,
+      foregroundColor: Colors.white,
+    ),
+    body: SafeArea(child: Form(
+      key: _formKey,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+        children: [
+          const Text(
+            'Create an event for your approved club. The event will be published immediately.',
+            style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
+          ),
+          _label('Event title'),
+          TextFormField(
+            controller: _title,
+            style: const TextStyle(color: Colors.white),
+            decoration: _decoration('Nexora Annual Hackathon 2026'),
+            maxLength: 200,
+            validator: (v) => v == null || v.trim().isEmpty ? 'Enter an event title' : null,
+          ),
+          _label('Category'),
+          DropdownButtonFormField<String>(
+            initialValue: _category,
+            isExpanded: true,
+            dropdownColor: _fieldBg,
+            style: const TextStyle(color: Colors.white),
+            decoration: _decoration('Select category'),
+            items: const ['Technology', 'Cultural', 'Sports', 'Academic',
+              'Arts', 'Social Service', 'Other']
+              .map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+            onChanged: _saving ? null : (v) => setState(() => _category = v ?? 'Technology'),
+          ),
+          _label('Description'),
+          TextFormField(
+            controller: _description,
+            style: const TextStyle(color: Colors.white),
+            decoration: _decoration('Describe the event'),
+            minLines: 4,
+            maxLines: 6,
+            validator: (v) => v == null || v.trim().isEmpty ? 'Enter a description' : null,
+          ),
+          _label('Date and time'),
+          Row(children: [
+            Expanded(child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(foregroundColor: _blue,
+                side: const BorderSide(color: Colors.white70)),
+              icon: const Icon(Icons.calendar_month_outlined, size: 19),
+              label: Text(_date == null ? 'Choose date' : '${_date!.day}/${_date!.month}/${_date!.year}',
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+              onPressed: _saving ? null : () async {
+                final now = DateTime.now();
+                final d = await showDatePicker(context: context,
+                  initialDate: now.add(const Duration(days: 1)),
+                  firstDate: now, lastDate: now.add(const Duration(days: 1825)));
+                if (d != null && mounted) setState(() => _date = d);
+              },
+            )),
+            const SizedBox(width: 8),
+            Expanded(child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(foregroundColor: _blue,
+                side: const BorderSide(color: Colors.white70)),
+              icon: const Icon(Icons.access_time, size: 19),
+              label: Text(_time == null ? 'Choose time' : _time!.format(context),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+              onPressed: _saving ? null : () async {
+                final t = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+                if (t != null && mounted) setState(() => _time = t);
+              },
+            )),
+          ]),
+          _label('Venue'),
+          TextFormField(
+            controller: _venue,
+            style: const TextStyle(color: Colors.white),
+            decoration: _decoration('Innovation Center'),
+            validator: (v) => v == null || v.trim().isEmpty ? 'Enter a venue' : null,
+          ),
+          _label('Total available spots'),
+          TextFormField(
+            controller: _capacity,
+            keyboardType: TextInputType.number,
+            style: const TextStyle(color: Colors.white),
+            decoration: _decoration('100'),
+            validator: (v) => (int.tryParse(v?.trim() ?? '') ?? 0) <= 0
+              ? 'Enter a positive whole number' : null,
+          ),
+          const SizedBox(height: 30),
+          ElevatedButton(
+            onPressed: _saving ? null : _publish,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _blue,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(52),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            child: _saving
+              ? const SizedBox(height: 22, width: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Text('Publish Event', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    )),
+  );
 }
