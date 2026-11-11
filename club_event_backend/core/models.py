@@ -71,6 +71,7 @@ class Events(models.Model):
     location = models.CharField(max_length=255)
     capacity = models.IntegerField()
     approval_status = models.CharField(max_length=20)
+    proposal_file_key = models.CharField(max_length=255, blank=True, null=True)
     created_by = models.ForeignKey(Users, models.DO_NOTHING, db_column='created_by')
     club = models.ForeignKey(Clubs, models.DO_NOTHING, blank=True, null=True)
 

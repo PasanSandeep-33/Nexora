@@ -1,3 +1,4 @@
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -1405,6 +1406,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   }
 
   // Tab 0: Moderation View
+  Future<void> _openEventProposal(Map<String, dynamic> event, {bool download = false}) async {
+    final id = int.tryParse('${event['event_id'] ?? ''}');
+    if (id == null) return;
+    try {
+      final url = await ApiService.getAdminEventProposalUrl(id, download: download);
+      final launched = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!launched) throw Exception('Unable to open the PDF link.');
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Could not ${download ? 'download' : 'view'} PDF: $error'),
+      ));
+    }
+  }
+
   Widget _buildModerationTab() {
     final submissions = _filteredSubmissions;
     if (_eventsLoading) return const Center(child: CircularProgressIndicator());
@@ -1413,7 +1429,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       TextButton(onPressed: _loadEventSubmissions, child: const Text('Retry')),
     ]));
 
-    return SingleChildScrollView(
+    return RefreshIndicator(
+      onRefresh: _loadEventSubmissions,
+      child: SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1447,6 +1466,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _loadEventSubmissions,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Refresh submissions'),
             ),
           ),
           const SizedBox(height: 16),
@@ -1511,6 +1539,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                             ],
                           ),
                           const Padding(padding: EdgeInsets.symmetric(vertical: 12.0), child: Divider(height: 1, color: Color(0xFFE2E8F0))),
+                          if (item['has_proposal'] == true) ...[
+                            Row(children: [
+                              Expanded(child: OutlinedButton.icon(
+                                onPressed: () => _openEventProposal(item),
+                                icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
+                                label: const Text('View PDF'),
+                                style: OutlinedButton.styleFrom(foregroundColor: blue),
+                              )),
+                              const SizedBox(width: 10),
+                              IconButton.outlined(
+                                onPressed: () => _openEventProposal(item, download: true),
+                                icon: const Icon(Icons.download_rounded, color: blue),
+                                tooltip: 'Download PDF',
+                              ),
+                            ]),
+                            const SizedBox(height: 12),
+                          ] else if (isPending) ...[
+                            const Text('No proposal PDF attached (older submission).',
+                              style: TextStyle(color: Colors.orange, fontSize: 12)),
+                            const SizedBox(height: 12),
+                          ],
                           if (isPending) ...[
                             Row(
                               children: [
@@ -1547,7 +1596,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 ),
         ],
       ),
-    );
+    ));
   }
 
   // Tab 1: Events Management View

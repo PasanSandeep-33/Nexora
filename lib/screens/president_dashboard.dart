@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
@@ -272,7 +273,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
       await _loadClubEvents();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(existingEvent == null ? 'Event published successfully.' : 'Event updated successfully.'),
+        content: Text(existingEvent == null ? 'Event submitted for approval.' : 'Event updated successfully.'),
       ));
     }
   }
@@ -1837,6 +1838,7 @@ class _PresidentCreateEventPageState extends State<_PresidentCreateEventPage> {
   DateTime? _date;
   TimeOfDay? _time;
   bool _saving = false;
+  PlatformFile? _proposalPdf;
   bool get _editing => widget.existingEvent != null;
 
   @override
@@ -1908,6 +1910,12 @@ class _PresidentCreateEventPageState extends State<_PresidentCreateEventPage> {
       );
       return;
     }
+    if (!_editing && _proposalPdf == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Attach your event proposal PDF before submitting.')),
+      );
+      return;
+    }
     setState(() => _saving = true);
     try {
       final clubs = _editing ? <Map<String, dynamic>>[] : await ApiService.getMyPresidentClubs();
@@ -1935,6 +1943,7 @@ class _PresidentCreateEventPageState extends State<_PresidentCreateEventPage> {
         dateTime: scheduled,
         location: _venue.text.trim(),
         capacity: int.parse(_capacity.text.trim()),
+        proposalPdf: _proposalPdf!,
       );
       }
       if (!mounted) return;
@@ -1963,7 +1972,7 @@ class _PresidentCreateEventPageState extends State<_PresidentCreateEventPage> {
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
         children: [
           Text(
-            _editing ? 'Update your club event details.' : 'Create an event for your approved club. The event will be published immediately.',
+            _editing ? 'Update your club event details.' : 'Create an event for your approved club. It will be submitted for administrator approval.',
             style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
           ),
           _label('Event title'),
@@ -2040,6 +2049,28 @@ class _PresidentCreateEventPageState extends State<_PresidentCreateEventPage> {
             validator: (v) => (int.tryParse(v?.trim() ?? '') ?? 0) <= 0
               ? 'Enter a positive whole number' : null,
           ),
+          if (!_editing) ...[
+            _label('Event proposal PDF (required, max 10 MB)'),
+            OutlinedButton.icon(
+              onPressed: _saving ? null : () async {
+                final result = await FilePicker.platform.pickFiles(
+                  type: FileType.custom, allowedExtensions: ['pdf'], withData: true,
+                );
+                if (result == null || result.files.isEmpty || !mounted) return;
+                final file = result.files.single;
+                if (file.size == 0 || file.size > 10 * 1024 * 1024) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Choose a PDF smaller than 10 MB.')),
+                  );
+                  return;
+                }
+                setState(() => _proposalPdf = file);
+              },
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              label: Text(_proposalPdf?.name ?? 'Choose proposal PDF'),
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
+            ),
+          ],
           const SizedBox(height: 30),
           ElevatedButton(
             onPressed: _saving ? null : _publish,
@@ -2052,7 +2083,7 @@ class _PresidentCreateEventPageState extends State<_PresidentCreateEventPage> {
             child: _saving
               ? const SizedBox(height: 22, width: 22,
                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : Text(_editing ? 'Save Changes' : 'Publish Event', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              : Text(_editing ? 'Save Changes' : 'Submit for Approval', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ),
         ],
       ),

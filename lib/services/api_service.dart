@@ -444,18 +444,31 @@ static Future<bool> refreshSession() async {
     required DateTime dateTime,
     required String location,
     required int capacity,
+    required PlatformFile proposalPdf,
   }) async {
     final token = await AuthStorage.getToken();
     if (token == null || token.isEmpty) throw Exception('Please log in again.');
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/events/create/'),
-      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'club': clubId, 'title': title.trim(), 'category': category,
-        'description': description.trim(), 'event_date': dateTime.toUtc().toIso8601String(),
-        'location': location.trim(), 'capacity': capacity,
-      }),
-    ).timeout(const Duration(seconds: 25));
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/api/events/create/'));
+    request.headers['Authorization'] = 'Bearer $token';
+    request.fields.addAll({
+      'club': clubId.toString(), 'title': title.trim(), 'category': category,
+      'description': description.trim(), 'event_date': dateTime.toUtc().toIso8601String(),
+      'location': location.trim(), 'capacity': capacity.toString(),
+    });
+    if (proposalPdf.bytes != null) {
+      request.files.add(http.MultipartFile.fromBytes(
+        'proposal_pdf', proposalPdf.bytes!, filename: proposalPdf.name,
+      ));
+    } else if (proposalPdf.path != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+        'proposal_pdf', proposalPdf.path!, filename: proposalPdf.name,
+      ));
+    } else {
+      throw Exception('Please select a valid PDF file.');
+    }
+    final response = await http.Response.fromStream(
+      await request.send().timeout(const Duration(seconds: 60)),
+    );
     if (response.statusCode == 201) return;
     dynamic data;
     try { data = jsonDecode(response.body); } catch (_) { data = null; }
@@ -562,6 +575,19 @@ static Future<bool> refreshSession() async {
     ).timeout(const Duration(seconds: 20));
     if (response.statusCode != 200) throw Exception('Unable to load approved events (${response.statusCode}).');
     return (jsonDecode(response.body) as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  static Future<String> getAdminEventProposalUrl(int eventId, {bool download = false}) async {
+    final token = await AuthStorage.getToken();
+    if (token == null || token.isEmpty) throw Exception('Please log in again.');
+    final uri = Uri.parse('$baseUrl/api/admin/events/$eventId/proposal/')
+        .replace(queryParameters: {'download': download ? '1' : '0'});
+    final response = await http.get(uri, headers: {'Authorization': 'Bearer $token'})
+        .timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) {
+      throw Exception('Unable to access proposal (${response.statusCode}): ${response.body}');
+    }
+    return (jsonDecode(response.body) as Map<String, dynamic>)['url'] as String;
   }
 
   static Future<void> reviewAdminEvent(int eventId, {
