@@ -30,7 +30,7 @@ from .president_application_views import (
     public_club_list,
 )
 
-from .event_creation_views import my_president_clubs, submit_event, pending_events, review_event, my_president_events, president_event_detail
+from .event_creation_views import my_president_clubs, submit_event, pending_events, review_event, approved_events_admin,  my_president_events, president_event_detail
 
 from .rsvp_views import student_rsvps, cancel_student_rsvp, president_participants, president_check_in
 
@@ -47,6 +47,7 @@ urlpatterns = [
     path("signup/", signup, name="signup"),
     path("login/", login, name="login"),
     path("profile/", profile, name="profile"),
+    path('admin/events/approved/', approved_events_admin, name='admin-approved-events'),
     path(
         "profile/image/",
         upload_profile_image,
