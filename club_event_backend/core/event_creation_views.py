@@ -1,4 +1,10 @@
 """Nexora event submission and admin review endpoints."""
+import uuid
+import time
+import cloudinary.uploader
+import cloudinary.utils
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.decorators import parser_classes
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -30,19 +36,47 @@ def my_president_clubs(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
 def submit_event(request):
     if str(request.user.role).lower() != 'club_admin' or not PresidentApplication.objects.filter(
         applicant_id=request.user.user_id, status='approved'
     ).exists():
         return Response({'detail': 'Approved Club President status is required.'}, status=403)
 
+    proposal = request.FILES.get('proposal_pdf')
+    if proposal is None:
+        return Response({'proposal_pdf': ['An event proposal PDF is required.']}, status=400)
+    if not proposal.name.lower().endswith('.pdf') or proposal.size > 10 * 1024 * 1024 or proposal.size == 0:
+        return Response({'proposal_pdf': ['Upload a PDF no larger than 10 MB.']}, status=400)
+    if proposal.read(5) != b'%PDF-':
+        return Response({'proposal_pdf': ['The selected file is not a valid PDF.']}, status=400)
+    proposal.seek(0)
     serializer = EventCreateSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     club = serializer.validated_data['club']
     if not _owned_clubs(request.user).filter(pk=club.pk).exists():
         return Response({'detail': 'You may create events only for a club you lead.'}, status=403)
 
-    event = serializer.save(created_by=Users.objects.get(pk=request.user.user_id), approval_status='pending')
+    # Match the existing authenticated Cloudinary document storage pattern.
+    public_id = f'nexora/event_proposals/{uuid.uuid4().hex}.pdf'
+    try:
+        uploaded = cloudinary.uploader.upload(
+            proposal, public_id=public_id, resource_type='raw',
+            type='authenticated', overwrite=False,
+        )
+    except Exception:
+        return Response({'detail': 'Could not securely store the proposal PDF.'}, status=502)
+    try:
+        event = serializer.save(
+            created_by=Users.objects.get(pk=request.user.user_id),
+            approval_status='pending', proposal_file_key=uploaded['public_id'],
+        )
+    except Exception:
+        try:
+            cloudinary.uploader.destroy(uploaded['public_id'], resource_type='raw', type='authenticated')
+        except Exception:
+            pass
+        raise
     return Response(EventSerializer(event).data, status=status.HTTP_201_CREATED)
 
 
@@ -56,6 +90,7 @@ def pending_events(request):
     for item, event in zip(data, events):
         item['club_name'] = event.club.club_name if event.club else ''
         item['organizer'] = event.created_by.full_name if event.created_by else ''
+        item['has_proposal'] = bool(event.proposal_file_key)
     return Response(data)
 
 
@@ -69,6 +104,7 @@ def approved_events_admin(request):
     for item, event in zip(data, events):
         item['club_name'] = event.club.club_name if event.club else ''
         item['organizer'] = event.created_by.full_name if event.created_by else ''
+        item['has_proposal'] = bool(event.proposal_file_key)
     return Response(data)
 
 
@@ -136,3 +172,23 @@ def president_event_detail(request, event_id):
     serializer.is_valid(raise_exception=True)
     updated = serializer.save()
     return Response(EventSerializer(updated).data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def event_proposal_document(request, event_id):
+    """Admin-only short-lived URL for private event proposal PDF."""
+    if str(request.user.role).lower() != 'admin':
+        return Response({'detail': 'Administrator access required.'}, status=403)
+    event = Events.objects.filter(pk=event_id).first()
+    if event is None or not event.proposal_file_key:
+        return Response({'detail': 'Proposal PDF not found.'}, status=404)
+    try:
+        signed_url = cloudinary.utils.private_download_url(
+            event.proposal_file_key, format=None, resource_type='raw',
+            type='authenticated', expires_at=int(time.time()) + 300,
+            attachment=request.query_params.get('download') == '1',
+        )
+    except Exception:
+        return Response({'detail': 'Unable to open the proposal PDF.'}, status=502)
+    return Response({'url': signed_url})

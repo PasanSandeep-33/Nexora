@@ -80,7 +80,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
     // Events are fetched from the Django API; never show sample events.
     _events = [];
     _loadEvents();
-    _refreshMyRsvps();
 
     _clubs = [
       Club(
@@ -97,6 +96,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
     // A student starts with no passes. RSVPs are added only after the student
     // explicitly confirms one from the Explore tab.
     _myRsvps = [];
+    _refreshMyRsvps();
   }
 
   Future<void> _loadEvents() async {
@@ -336,6 +336,7 @@ String get _userEmail {
       final data = await ApiService.registerRsvp(event.eventId);
       final newRsvp = RsvpItem.fromJson(data);
       await _refreshMyRsvps();
+      await _loadEvents();
       if (!mounted) return;
       _showFloatingSnackBar(
         message: 'RSVP confirmed for ${event.title}!',
@@ -407,6 +408,7 @@ String get _userEmail {
     try {
       await ApiService.cancelRsvp(rsvp.rsvpId);
       await _refreshMyRsvps();
+      await _loadEvents();
     } catch (e) {
       if (!mounted) return;
       _showFloatingSnackBar(message: _friendlyError(e), backgroundColor: Colors.redAccent,
@@ -420,6 +422,14 @@ String get _userEmail {
       textColor: Colors.white,
       icon: Icons.info_outline,
     );
+  }
+
+  // Refresh profile photo and backend-backed RSVP statistics.
+  Future<void> _refreshProfile() async {
+    await Future.wait([
+      _loadProfileImage(),
+      _refreshMyRsvps(),
+    ]);
   }
 
   Future<void> _loadProfileImage() async {
@@ -1276,6 +1286,7 @@ Future<void> _pickProfileImage(ImageSource source) async {
 
                   // Tab 4: Student Profile (With Photo Upload & Privacy Policies)
                   ProfileTab(
+                    onRefresh: _refreshProfile,
                     userName: _userName,
                     userEmail: _userEmail,
                     rsvpCount: _myRsvps.length,

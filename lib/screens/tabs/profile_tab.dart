@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 class ProfileTab extends StatelessWidget {
+  final Future<void> Function() onRefresh;
   final String userName;
   final String userEmail;
   final int rsvpCount;
@@ -20,6 +21,7 @@ class ProfileTab extends StatelessWidget {
 
   const ProfileTab({
     super.key,
+    required this.onRefresh,
     required this.userName,
     required this.userEmail,
     required this.rsvpCount,
@@ -52,7 +54,12 @@ class ProfileTab extends StatelessWidget {
             ? NetworkImage(profileImageUrl!)
             : null);
 
-    return ListView(
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: cyan,
+      backgroundColor: navyCard,
+      child: ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       children: [
         // Digital Student Card
@@ -243,6 +250,7 @@ class ProfileTab extends StatelessWidget {
           isDestructive: true,
         ),
       ],
+      ),
     );
   }
 
