@@ -13,6 +13,7 @@ from .views import (
     admin_mfa_verify_setup,
     admin_mfa_verify_login,
     admin_mfa_recovery,
+    admin_student_count,
 )
 from .club_registration_views import (
     submit_club_registration,
@@ -124,5 +125,11 @@ urlpatterns = [
         president_event_detail,
         name="president-event-detail",
     ),
+
+    path(
+    "admin/students/count/",
+    admin_student_count,
+    name="admin-student-count",
+),
 
 ]

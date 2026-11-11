@@ -5,7 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../login_screen.dart';
 import '../services/api_service.dart';
-
+import '../services/app_error_message.dart';
 
 void main() {
   runApp(const MyApp());
@@ -928,7 +928,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       children: [
                         Icon(Icons.verified_user_rounded, size: 20),
                         SizedBox(height: 2),
-                        Text('President Apps', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        Text('President Requests', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
@@ -1182,39 +1182,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     }
   }
 
-  Future<void> _showPresidentSupportingDocument(int id) async {
+  Future<void> _openPresidentSupportingDocument(int id, {bool download = false}) async {
     try {
-      final response = await ApiService.getPresidentApplicationDocument(id);
-      if (!mounted) return;
-      final contentType = response.headers['content-type'] ?? '';
-      if (contentType.startsWith('image/')) {
-        await showDialog<void>(
-          context: context,
-          builder: (dialogContext) => Dialog(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Image.memory(response.bodyBytes, fit: BoxFit.contain),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Close'),
-                ),
-              ],
-            ),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Document retrieved. PDF preview is not supported in this screen yet.')),
-        );
-      }
+      final url = await ApiService.getPresidentApplicationDocumentUrl(
+        id, download: download,
+      );
+      final launched = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) throw Exception('Unable to open the document link.');
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to open supporting document: $error')),
+        SnackBar(content: Text(
+          'Could not ${download ? 'download' : 'view'} supporting document: $error',
+        )),
       );
     }
   }
@@ -1310,11 +1293,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                           style: const TextStyle(color: kTextGrey, fontSize: 12)),
                       ],
                       const SizedBox(height: 10),
-                      OutlinedButton.icon(
-                        onPressed: id == 0 ? null : () => _showPresidentSupportingDocument(id),
-                        icon: const Icon(Icons.attach_file, size: 16),
-                        label: const Text('View supporting document'),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Divider(height: 1, color: Color(0xFFE2E8F0)),
                       ),
+                      Row(children: [
+                        Expanded(child: OutlinedButton.icon(
+                          onPressed: id == 0 ? null : () => _openPresidentSupportingDocument(id),
+                          icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
+                          label: const Text('View PDF'),
+                          style: OutlinedButton.styleFrom(foregroundColor: blue),
+                        )),
+                        const SizedBox(width: 10),
+                        IconButton.outlined(
+                          onPressed: id == 0 ? null : () => _openPresidentSupportingDocument(id, download: true),
+                          icon: const Icon(Icons.download_rounded, color: blue),
+                          tooltip: 'Download supporting document',
+                        ),
+                      ]),
                       if (pending) ...[
                         const SizedBox(height: 8),
                         Row(
