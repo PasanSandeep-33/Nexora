@@ -19,10 +19,14 @@ class _EventsScreenState extends State<EventsScreen> {
     eventsFuture = ApiService.getEvents();
   }
 
-  void refreshEvents() {
-    setState(() {
-      eventsFuture = ApiService.getEvents();
-    });
+  Future<void> refreshEvents() async {
+    final future = ApiService.getEvents();
+    setState(() => eventsFuture = future);
+    try {
+      await future;
+    } catch (_) {
+      // The FutureBuilder displays the fetch error; allow another swipe.
+    }
   }
 
   @override
@@ -32,28 +36,41 @@ class _EventsScreenState extends State<EventsScreen> {
         title: const Text('Club Events'),
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: refreshEvents),
-        ],
       ),
-      body: FutureBuilder<List<Event>>(
+      body: RefreshIndicator(
+        onRefresh: refreshEvents,
+        child: FutureBuilder<List<Event>>(
         future: eventsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [SizedBox(height: 120), Center(child: CircularProgressIndicator())],
+            );
           }
 
           if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                const SizedBox(height: 120),
+                Center(child: Text('Error: ${snapshot.error}')),
+                const Center(child: Text('Pull down to retry.')),
+              ],
+            );
           }
 
           final events = snapshot.data ?? [];
 
           if (events.isEmpty) {
-            return const Center(child: Text('No approved events available'));
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [SizedBox(height: 120), Center(child: Text('No approved events available'))],
+            );
           }
 
           return ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             itemCount: events.length,
             itemBuilder: (context, index) {
@@ -86,6 +103,7 @@ class _EventsScreenState extends State<EventsScreen> {
             },
           );
         },
+        ),
       ),
     );
   }

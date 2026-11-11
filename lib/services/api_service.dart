@@ -241,6 +241,24 @@ static Future<bool> refreshSession() async {
 }
 
 
+  // Admin dashboard: count registered student-role accounts.
+  static Future<int> getAdminStudentCount() async {
+    final token = await AuthStorage.getToken();
+    if (token == null || token.isEmpty) throw Exception('Please log in again.');
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/admin/stats/'),
+      headers: {'Authorization': 'Bearer $token'},
+    ).timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) {
+      throw Exception('Unable to load student count (${response.statusCode}).');
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map || decoded['students'] is! int) {
+      throw Exception('Unexpected admin statistics response.');
+    }
+    return decoded['students'] as int;
+  }
+
   // Public API - Get clubs approved for public display.
   static Future<List<Club>> getClubs() async {
   final token = await AuthStorage.getToken();
@@ -455,17 +473,23 @@ static Future<bool> refreshSession() async {
       'description': description.trim(), 'event_date': dateTime.toUtc().toIso8601String(),
       'location': location.trim(), 'capacity': capacity.toString(),
     });
-    if (proposalPdf.bytes != null) {
-      request.files.add(http.MultipartFile.fromBytes(
-        'proposal_pdf', proposalPdf.bytes!, filename: proposalPdf.name,
-      ));
-    } else if (proposalPdf.path != null) {
-      request.files.add(await http.MultipartFile.fromPath(
-        'proposal_pdf', proposalPdf.path!, filename: proposalPdf.name,
-      ));
-    } else {
-      throw Exception('Please select a valid PDF file.');
+    if (!proposalPdf.name.toLowerCase().endsWith('.pdf')) {
+      throw Exception('Please select a PDF file.');
     }
+    final pdfSize = await proposalPdf.length();
+    if (pdfSize == null || pdfSize <= 0 || pdfSize > 10 * 1024 * 1024) {
+      throw Exception('Choose a readable PDF no larger than 10 MB.');
+    }
+    final pdfBytes = await proposalPdf.readAsBytes();
+    if (pdfBytes.length < 5 ||
+        pdfBytes[0] != 0x25 || pdfBytes[1] != 0x50 ||
+        pdfBytes[2] != 0x44 || pdfBytes[3] != 0x46 ||
+        pdfBytes[4] != 0x2D) {
+      throw Exception('The selected file is not a valid PDF.');
+    }
+    request.files.add(http.MultipartFile.fromBytes(
+      'proposal_pdf', pdfBytes, filename: proposalPdf.name,
+    ));
     final response = await http.Response.fromStream(
       await request.send().timeout(const Duration(seconds: 60)),
     );

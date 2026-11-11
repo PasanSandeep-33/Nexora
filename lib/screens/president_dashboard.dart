@@ -879,7 +879,10 @@ class _PresidentDashboardState extends State<PresidentDashboard>
   // ==================== TAB 1: EVENTS TAB ====================
   Widget _buildEventsTab() {
 
-    return SingleChildScrollView(
+    return RefreshIndicator(
+      onRefresh: _loadClubEvents,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1102,6 +1105,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                 ),
         ],
       ),
+      ),
     );
   }
 
@@ -1124,7 +1128,10 @@ class _PresidentDashboardState extends State<PresidentDashboard>
       ...clubEvents.map((e) => e["title"].toString()),
     ];
 
-    return SingleChildScrollView(
+    return RefreshIndicator(
+      onRefresh: _loadParticipants,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1281,11 +1288,6 @@ class _PresidentDashboardState extends State<PresidentDashboard>
               child: Text('Unable to load participants: $_participantsError',
                 style: const TextStyle(color: Colors.redAccent)),
             ),
-          TextButton.icon(
-            onPressed: _loadingParticipants ? null : _loadParticipants,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Refresh participants'),
-          ),
           // Participants List (live database records)
           filteredList.isEmpty
               ? const Center(
@@ -1382,6 +1384,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                   },
                 ),
         ],
+      ),
       ),
     );
   }
@@ -1546,7 +1549,12 @@ class _PresidentDashboardState extends State<PresidentDashboard>
         .where((p) => p["checkedIn"] == true)
         .length;
 
-    return ListView(
+    return RefreshIndicator(
+      onRefresh: () async {
+        await Future.wait([_loadProfile(), _loadClubEvents(), _loadParticipants()]);
+      },
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       children: [
         // 1. Digital President ID Card on Clean White Surface
@@ -1698,6 +1706,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
         ),
         _profileActionTile(Icons.logout_rounded, 'Log Out', _confirmLogout, isDestructive: true),
       ],
+      ),
     );
   }
 
@@ -2051,25 +2060,41 @@ class _PresidentCreateEventPageState extends State<_PresidentCreateEventPage> {
           ),
           if (!_editing) ...[
             _label('Event proposal PDF (required, max 10 MB)'),
-            OutlinedButton.icon(
-              onPressed: _saving ? null : () async {
-                final result = await FilePicker.platform.pickFiles(
-                  type: FileType.custom, allowedExtensions: ['pdf'], withData: true,
+
+          OutlinedButton.icon(
+            onPressed: _saving ? null : () async {
+              final files = await FilePicker.pickFiles(
+                type: FileType.custom,
+                allowedExtensions: ['pdf'],
+              );
+
+              if (files.isEmpty || !mounted) return;
+
+              final file = files.single;
+              final int? fileSize = await file.length();
+
+              if (!mounted) return;
+
+              if (fileSize == null ||
+                  fileSize == 0 ||
+                  fileSize > 10 * 1024 * 1024) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Choose a PDF smaller than 10 MB.'),
+                  ),
                 );
-                if (result == null || result.files.isEmpty || !mounted) return;
-                final file = result.files.single;
-                if (file.size == 0 || file.size > 10 * 1024 * 1024) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Choose a PDF smaller than 10 MB.')),
-                  );
-                  return;
-                }
-                setState(() => _proposalPdf = file);
-              },
-              icon: const Icon(Icons.picture_as_pdf_outlined),
-              label: Text(_proposalPdf?.name ?? 'Choose proposal PDF'),
-              style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
+                return;
+              }
+
+              setState(() => _proposalPdf = file);
+            },
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            label: Text(_proposalPdf?.name ?? 'Choose proposal PDF'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
             ),
+          ),
+
           ],
           const SizedBox(height: 30),
           ElevatedButton(

@@ -1,5 +1,6 @@
 
 from django.urls import path
+from .admin_stats_views import admin_stats
 from .views import (
     event_list,
     signup,
@@ -35,6 +36,7 @@ from .event_creation_views import my_president_clubs, submit_event, pending_even
 from .rsvp_views import student_rsvps, cancel_student_rsvp, president_participants, president_check_in
 
 urlpatterns = [
+    path("admin/stats/", admin_stats, name="admin-stats"),
     path("rsvps/", student_rsvps, name="student-rsvps"),
     path("rsvps/<int:rsvp_id>/", cancel_student_rsvp, name="cancel-rsvp"),
     path("president/participants/", president_participants, name="president-participants"),

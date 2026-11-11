@@ -11,7 +11,6 @@ import '../services/api_service.dart';
 import '../services/profile_image_service.dart';
 import '../models/event_model.dart';
 import '../models/rsvp_model.dart';
-import '../models/ticket_model.dart';
 import '../models/club_model.dart';
 import 'tabs/explore_tab.dart';
 import 'tabs/my_passes_tab.dart';

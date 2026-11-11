@@ -124,6 +124,7 @@ class _ClubsTabState extends State<ClubsTab> {
       color: cyan,
       backgroundColor: navyCard,
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         children: [
           const Text('Campus Clubs & Societies',
@@ -180,11 +181,6 @@ class _ClubsTabState extends State<ClubsTab> {
             const SizedBox(height: 8),
             Text('Could not refresh club information: $_error',
                 style: const TextStyle(color: Colors.orangeAccent, fontSize: 11)),
-            TextButton.icon(
-              onPressed: _loadData,
-              icon: const Icon(Icons.refresh, color: cyan),
-              label: const Text('Retry', style: TextStyle(color: cyan)),
-            ),
           ],
           const SizedBox(height: 14),
           if (!_loading && _clubs.isEmpty)
@@ -950,6 +946,7 @@ class _AddEventPageState extends State<AddEventPage> {
   DateTime? _date;
   TimeOfDay? _time;
   bool _saving = false;
+  PlatformFile? _proposalPdf;
   static const _navy = Color(0xFF050B25);
   static const _cyan = Color(0xFF19D9ED);
 
@@ -978,8 +975,37 @@ class _AddEventPageState extends State<AddEventPage> {
     child: Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
   );
 
+  Future<void> _pickProposalPdf() async {
+    try {
+      final file = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: const ['pdf'],
+      );
+      if (file == null || !mounted) return;
+      final size = await file.length();
+      if (size == null || size <= 0 || size > 10 * 1024 * 1024) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Choose a readable PDF no larger than 10 MB.')),
+        );
+        return;
+      }
+      setState(() => _proposalPdf = file);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to select PDF: $error')),
+      );
+    }
+  }
+
   Future<void> _submit() async {
     if (_saving || !_form.currentState!.validate()) return;
+    if (_proposalPdf == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please attach an event proposal PDF.')),
+      );
+      return;
+    }
     if (_clubId == null || _date == null || _time == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select your club, date and time.')));
       return;
@@ -995,9 +1021,10 @@ class _AddEventPageState extends State<AddEventPage> {
         clubId: _clubId!, title: _title.text, category: _category,
         description: _description.text, dateTime: dateTime,
         location: _location.text, capacity: int.parse(_capacity.text),
+        proposalPdf: _proposalPdf!,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Event published successfully.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Event submitted for administrator approval.')));
       Navigator.of(context).pop(true);
     } catch (error) {
       if (!mounted) return;
@@ -1012,7 +1039,7 @@ class _AddEventPageState extends State<AddEventPage> {
     backgroundColor: _navy,
     appBar: AppBar(title: const Text('Add New Event'), backgroundColor: _navy, foregroundColor: Colors.white),
     body: Form(key: _form, child: ListView(padding: const EdgeInsets.all(20), children: [
-      const Text('Create an event for your approved club. The event will be published immediately.',
+      const Text('Create an event for your approved club. It will be reviewed by an administrator before publication.',
         style: TextStyle(color: Colors.white70)),
       _label('Organizing club'),
       DropdownButtonFormField<int>(
@@ -1069,12 +1096,32 @@ class _AddEventPageState extends State<AddEventPage> {
       TextFormField(controller: _capacity, keyboardType: TextInputType.number,
         style: const TextStyle(color: Colors.white), decoration: _dec('100'),
         validator: (v) => (int.tryParse(v ?? '') ?? 0) <= 0 ? 'Enter a positive whole number' : null),
+      _label('Event proposal PDF (required)'),
+      const Text('PDF only • Maximum 10 MB',
+        style: TextStyle(color: Colors.white60, fontSize: 11)),
+      const SizedBox(height: 8),
+      OutlinedButton.icon(
+        onPressed: _saving ? null : _pickProposalPdf,
+        icon: const Icon(Icons.picture_as_pdf_outlined),
+        label: Text(_proposalPdf?.name ?? 'Choose proposal PDF',
+          overflow: TextOverflow.ellipsis),
+        style: OutlinedButton.styleFrom(foregroundColor: _cyan),
+      ),
+      if (_proposalPdf != null)
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: _saving ? null : () => setState(() => _proposalPdf = null),
+            icon: const Icon(Icons.close),
+            label: const Text('Remove PDF'),
+          ),
+        ),
       const SizedBox(height: 28),
       ElevatedButton(
         onPressed: _saving ? null : _submit,
         style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3478FF), foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(52)),
-        child: Text(_saving ? 'Submitting...' : 'Publish Event'),
+        child: Text(_saving ? 'Submitting...' : 'Submit for Approval'),
       ),
       const SizedBox(height: 20),
     ])),
