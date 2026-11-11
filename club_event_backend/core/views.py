@@ -605,3 +605,16 @@ def admin_mfa_recovery(request):
             {"message": "Unable to verify recovery code."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_student_count(request):
+    if request.user.role != "admin":
+        return Response(
+            {"detail": "Admin access required."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    count = Users.objects.filter(role="student").count()
+    return Response({"count": count})

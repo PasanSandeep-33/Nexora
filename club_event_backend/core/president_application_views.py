@@ -78,22 +78,14 @@ def submit_president_application(request):
     if error:
         return Response({"supporting_document": [error]}, status=400)
 
-    data = cast(dict[str, Any], serializer.validated_data)
-    if Clubs.objects.filter(club_name__iexact=data["club_name"]).exists():
-        return Response({"club_name": ["A club with this name already exists."]}, status=409)
-    if PresidentApplication.objects.filter(club_name__iexact=data["club_name"], status="pending").exists():
-        return Response({"club_name": ["A pending application already uses this name."]}, status=409)
-
     public_id = None
     resource_type = None
     try:
         public_id, resource_type = _upload_private_document(uploaded_file, "president_applications")
+        data = cast(dict[str, Any], serializer.validated_data)
         application = PresidentApplication.objects.create(
             applicant=Users.objects.get(user_id=request.user.user_id),
-            reason=data["description"],
-            club_name=data["club_name"],
-            category=data["category"],
-            description=data["description"],
+            reason=data["reason"],
             proof_file_key=public_id,
             status="pending",
         )
@@ -152,7 +144,7 @@ def view_president_application_document(request, application_id):
         signed_url = cloudinary.utils.private_download_url(
             public_id, format=None, resource_type=resource_type,
             type="authenticated", expires_at=int(time.time()) + 300,
-            attachment=False,
+            attachment=request.query_params.get("download") == "1",
         )
         return Response({"application_id": application.pk, "document_url": signed_url}, status=200)
     except Exception:
@@ -173,47 +165,15 @@ def approve_president_application(request, application_id):
             application = PresidentApplication.objects.select_for_update().get(pk=application_id)
             if application.status != "pending":
                 return Response({"detail": "This application has already been reviewed."}, status=409)
-            if not application.club_name or not application.category or not application.description:
-                return Response({"detail": "Legacy application has no club details. Request a new combined application."}, status=409)
-            if Clubs.objects.filter(club_name__iexact=application.club_name).exists():
-                return Response({"detail": "A club with this name already exists."}, status=409)
-            club = Clubs.objects.create(
-                club_name=application.club_name,
-                category=application.category,
-                description=application.description,
-                user=application.applicant,
-            )
-            ClubMemberships.objects.create(
-                club=club,
-                user=application.applicant,
-                member_role="president",
-                joined_at=timezone.now(),
-            )
-
-            # Change the approved student's account role to President
-            application.applicant.role = "club_admin"
-            application.applicant.save(update_fields=["role"])
-
-            application.approved_club = club
             application.status = "approved"
             application.reviewed_by = Users.objects.get(user_id=request.user.user_id)
             application.reviewed_at = timezone.now()
             data = cast(dict[str, Any], serializer.validated_data)
             application.review_reason = data.get("review_reason", "")
-            application.save(update_fields=["approved_club", "status", "reviewed_by", "reviewed_at", "review_reason"])
+            application.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_reason"])
         return Response(PresidentApplicationReadSerializer(application).data, status=200)
     except PresidentApplication.DoesNotExist:
         return Response({"detail": "President application not found."}, status=404)
-    
-    except Exception:
-        logger.exception(
-            "Failed to approve President application %s",
-            application_id,
-        )
-        return Response(
-            {"detail": "Unable to approve President application."},
-            status=500,
-        )
 
 
 @api_view(["POST"])
@@ -243,7 +203,7 @@ def reject_president_application(request, application_id):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def public_club_list(request):
-    # Approved President applications create clubs immediately.
+    # Clubs are only created after the second (club-registration) approval.
     clubs = Clubs.objects.all().order_by("club_name")
     data = []
     for club in clubs:

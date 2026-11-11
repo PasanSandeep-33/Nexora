@@ -241,24 +241,6 @@ static Future<bool> refreshSession() async {
 }
 
 
-  // Admin dashboard: count registered student-role accounts.
-  static Future<int> getAdminStudentCount() async {
-    final token = await AuthStorage.getToken();
-    if (token == null || token.isEmpty) throw Exception('Please log in again.');
-    final response = await http.get(
-      Uri.parse('$baseUrl/api/admin/stats/'),
-      headers: {'Authorization': 'Bearer $token'},
-    ).timeout(const Duration(seconds: 20));
-    if (response.statusCode != 200) {
-      throw Exception('Unable to load student count (${response.statusCode}).');
-    }
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map || decoded['students'] is! int) {
-      throw Exception('Unexpected admin statistics response.');
-    }
-    return decoded['students'] as int;
-  }
-
   // Public API - Get clubs approved for public display.
   static Future<List<Club>> getClubs() async {
   final token = await AuthStorage.getToken();
@@ -424,19 +406,28 @@ static Future<bool> refreshSession() async {
     throw Exception(message.toString());
   }
 
-  static Future<http.Response> getPresidentApplicationDocument(int id) async {
+  // Returns a short-lived, authenticated Cloudinary link for the document.
+  static Future<String> getPresidentApplicationDocumentUrl(
+    int id, {bool download = false}
+  ) async {
     final token = await AuthStorage.getToken();
     if (token == null || token.isEmpty) {
       throw Exception('Your admin session has expired. Please log in again.');
     }
+    final uri = Uri.parse('$baseUrl/api/admin/president-applications/$id/document/')
+        .replace(queryParameters: {'download': download ? '1' : '0'});
     final response = await http.get(
-      Uri.parse('$baseUrl/api/admin/president-applications/$id/document/'),
-      headers: {'Authorization': 'Bearer $token'},
+      uri, headers: {'Authorization': 'Bearer $token'},
     ).timeout(const Duration(seconds: 30));
     if (response.statusCode != 200) {
       throw Exception('Unable to retrieve document (${response.statusCode}).');
     }
-    return response;
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final url = data['document_url']?.toString();
+    if (url == null || url.isEmpty) {
+      throw Exception('Document link was not returned by the server.');
+    }
+    return url;
   }
 
   // Clubs where the logged-in approved President can create events.
@@ -729,5 +720,29 @@ static Future<bool> refreshSession() async {
   static Future<void> undoTicketCheckIn(String qrCode) async {
     await _phase1Request('DELETE', 'president/check-in/', {'qr_code': qrCode});
   }
+
+  static Future<int> getAdminStudentCount() async {
+  final token = await AuthStorage.getToken();
+
+  if (token == null || token.isEmpty) {
+    throw Exception('Please log in again.');
+  }
+
+  final response = await http.get(
+    Uri.parse('$baseUrl/api/admin/students/count/'),
+    headers: {
+      'Authorization': 'Bearer $token',
+    },
+  ).timeout(const Duration(seconds: 20));
+
+  if (response.statusCode != 200) {
+    throw Exception(
+      'Unable to load student count (${response.statusCode}).',
+    );
+  }
+
+  final data = jsonDecode(response.body) as Map<String, dynamic>;
+  return (data['count'] as num).toInt();
+}
 
 }
