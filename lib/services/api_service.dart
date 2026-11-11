@@ -538,6 +538,51 @@ static Future<bool> refreshSession() async {
         : 'Could not delete event (${response.statusCode}).');
   }
 
+  // Admin event approval queue.
+  static Future<List<Map<String, dynamic>>> getPendingAdminEvents() async {
+    final token = await AuthStorage.getToken();
+    if (token == null || token.isEmpty) throw Exception('Please log in again.');
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/admin/events/pending/'),
+      headers: {'Authorization': 'Bearer $token'},
+    ).timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) {
+      throw Exception('Unable to load event submissions (${response.statusCode}): ${response.body}');
+    }
+    final decoded = jsonDecode(response.body);
+    return (decoded as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> getApprovedAdminEvents() async {
+    final token = await AuthStorage.getToken();
+    if (token == null || token.isEmpty) throw Exception('Please log in again.');
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/admin/events/approved/'),
+      headers: {'Authorization': 'Bearer $token'},
+    ).timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) throw Exception('Unable to load approved events (${response.statusCode}).');
+    return (jsonDecode(response.body) as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  static Future<void> reviewAdminEvent(int eventId, {
+    required bool approve,
+    String reason = '',
+  }) async {
+    final token = await AuthStorage.getToken();
+    if (token == null || token.isEmpty) throw Exception('Please log in again.');
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/admin/events/$eventId/review/'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'decision': approve ? 'approved' : 'rejected',
+        'comments': reason.trim(),
+      }),
+    ).timeout(const Duration(seconds: 20));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Unable to review event (${response.statusCode}): ${response.body}');
+    }
+  }
+
   // Upload via authenticated Django endpoint; Django uploads to Cloudinary
   // and saves the URL on the current user's database record.
   static Future<String> uploadProfileImage(XFile image) async {

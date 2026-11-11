@@ -42,7 +42,7 @@ def submit_event(request):
     if not _owned_clubs(request.user).filter(pk=club.pk).exists():
         return Response({'detail': 'You may create events only for a club you lead.'}, status=403)
 
-    event = serializer.save(created_by=Users.objects.get(pk=request.user.user_id), approval_status='approved')
+    event = serializer.save(created_by=Users.objects.get(pk=request.user.user_id), approval_status='pending')
     return Response(EventSerializer(event).data, status=status.HTTP_201_CREATED)
 
 
@@ -51,8 +51,25 @@ def submit_event(request):
 def pending_events(request):
     if str(request.user.role).lower() != 'admin':
         return Response({'detail': 'Administrator access required.'}, status=403)
-    events = Events.objects.filter(approval_status='pending').order_by('event_date')
-    return Response(EventSerializer(events, many=True).data)
+    events = Events.objects.filter(approval_status='pending').select_related('club', 'created_by').order_by('event_date')
+    data = EventSerializer(events, many=True).data
+    for item, event in zip(data, events):
+        item['club_name'] = event.club.club_name if event.club else ''
+        item['organizer'] = event.created_by.full_name if event.created_by else ''
+    return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def approved_events_admin(request):
+    if str(request.user.role).lower() != 'admin':
+        return Response({'detail': 'Administrator access required.'}, status=403)
+    events = Events.objects.filter(approval_status='approved').select_related('club', 'created_by').order_by('-event_date')
+    data = EventSerializer(events, many=True).data
+    for item, event in zip(data, events):
+        item['club_name'] = event.club.club_name if event.club else ''
+        item['organizer'] = event.created_by.full_name if event.created_by else ''
+    return Response(data)
 
 
 @api_view(['POST'])
@@ -106,6 +123,8 @@ def president_event_detail(request, event_id):
     event = Events.objects.filter(pk=event_id, club__in=_owned_clubs(request.user)).first()
     if event is None:
         return Response({'detail': 'Event not found or not managed by you.'}, status=404)
+    if event.approval_status == 'approved':
+        return Response({'detail': 'Approved events cannot be changed or deleted without administrator review.'}, status=409)
     if request.method == 'DELETE':
         # Existing RSVPs/tickets may restrict deletion depending on database FK rules.
         event.delete()

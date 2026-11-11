@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -50,9 +48,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   String _searchQuery = '';
   String _adminInitial = 'A';
   String _adminName = 'Admin';
-  String _adminEmail = 'admin.nexora@campus.nexora.edu';
+  String _adminEmail = 'admin.nexora@gmail.com';
   String _adminId = 'NXR-ADMIN-2026-01';
-  File? _profileImageFile;
+  String? _profileImageUrl;
+  bool _isUploadingProfileImage = false;
+  final ValueNotifier<int> _profileRevision = ValueNotifier<int>(0);
   bool _isSearchVisible = false;
   final TextEditingController _searchController = TextEditingController();
 
@@ -72,64 +72,51 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   ];
 
 
-  // Mock event submissions with correct upcoming dates (Nov/Dec 2026)
-  final List _allEvents = [
-    {
-      'title': 'Tech Talk & Workshop 1',
-      'category': 'TECHNOLOGY',
-      'status': 'PENDING REVIEW',
-      'timing': 'Upcoming',
-      'organizer': 'IEEE Computer Society',
-      'description': 'A 3-hour technical workshop covering cloud computing fundamentals and deployment pipelines.',
-      'date': '15/11/2026 • 14:00',
-      'location': 'Innovation Center',
-      'registered': '45/100 Registered',
-    },
-    {
-      'title': 'AI & Machine Learning Symposium',
-      'category': 'TECHNOLOGY',
-      'status': 'APPROVED',
-      'timing': 'Upcoming',
-      'organizer': 'Data Science Society',
-      'description': 'An introduction to neural networks and real-world machine learning applications.',
-      'date': '28/11/2026 • 10:00',
-      'location': 'Auditorium A',
-      'registered': '88/100 Registered',
-    },
-    {
-      'title': 'Annual Drama Night Auditions',
-      'category': 'CULTURAL',
-      'status': 'REJECTED',
-      'timing': 'Upcoming',
-      'organizer': 'Arts & Drama Circle',
-      'description': 'Open auditions for the upcoming university annual stage play production.',
-      'date': '30/11/2026 • 16:30',
-      'location': 'Student Center Hall',
-      'registered': '0/50 Registered',
-    },
-    {
-      'title': 'Windaneeya Handawa',
-      'category': 'CULTURAL',
-      'status': 'APPROVED',
-      'timing': 'Upcoming',
-      'organizer': 'Art Sub Committee',
-      'description': 'Live acoustic music, drama performances, under the campus amphitheatre lights.',
-      'date': '18/12/2026 • 17:00',
-      'location': 'University Amphitheatre',
-      'registered': '140/200 Registered',
-    },
-    {
-      'title': 'Robotics Bootcamp 2026',
-      'category': 'TECHNOLOGY',
-      'status': 'APPROVED',
-      'timing': 'Completed',
-      'organizer': 'Robotics Club',
-      'description': 'Hands-on hardware and microcontrollers programming bootcamp.',
-      'date': '15/09/2026 • 10:00',
-      'location': 'Engineering Lab 2',
-      'registered': '50/50 Registered',
-    },
-  ];
+  // Real event proposals awaiting administrator review.
+  List<Map<String, dynamic>> _allEvents = [];
+  List<Map<String, dynamic>> _approvedEvents = [];
+  bool _eventsLoading = false;
+  String? _eventsError;
+
+  Future<void> _loadEventSubmissions() async {
+    if (!mounted) return;
+    setState(() { _eventsLoading = true; _eventsError = null; });
+    try {
+      final events = await ApiService.getPendingAdminEvents();
+      final approved = await ApiService.getApprovedAdminEvents();
+      if (!mounted) return;
+      setState(() {
+        _approvedEvents = approved.map((event) => {
+          ...event,
+          'title': (event['title'] ?? '').toString(),
+          'category': (event['category'] ?? 'EVENT').toString(),
+          'status': 'APPROVED',
+          'timing': 'Upcoming',
+          'organizer': (event['club_name'] ?? event['organizer'] ?? 'Club').toString(),
+          'description': (event['description'] ?? '').toString(),
+          'date': (event['event_date'] ?? '').toString(),
+          'location': (event['location'] ?? '').toString(),
+          'registered': '0/${event['capacity'] ?? 0} Registered',
+        }).toList();
+        _allEvents = events.map((event) => {
+          ...event,
+          'title': (event['title'] ?? '').toString(),
+          'category': (event['category'] ?? 'EVENT').toString(),
+          'status': 'PENDING REVIEW',
+          'timing': 'Upcoming',
+          'organizer': (event['club_name'] ?? event['organizer'] ?? 'Club').toString(),
+          'description': (event['description'] ?? '').toString(),
+          'date': (event['event_date'] ?? '').toString(),
+          'location': (event['location'] ?? '').toString(),
+          'registered': '0/${event['capacity'] ?? 0} Registered',
+        }).toList();
+      });
+    } catch (error) {
+      if (mounted) setState(() => _eventsError = error.toString());
+    } finally {
+      if (mounted) setState(() => _eventsLoading = false);
+    }
+  }
 
   // Campus clubs list
   final List _campusClubs = [
@@ -181,7 +168,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(_handleTabSelection);
     _loadSavedAdminProfile();
-    _loadPresidentApplications(); 
+    _loadRemoteAdminProfile();
+    _loadPresidentApplications();
+    _loadEventSubmissions(); 
   }
 
   void _handleTabSelection() {
@@ -211,11 +200,48 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     }
   }
 
+  // The server is the source of truth for the admin photo. This also runs
+  // after a Remember Me session has been restored by the login/splash flow.
+  Future<void> _loadRemoteAdminProfile() async {
+    try {
+      Map<String, dynamic> profile;
+      try {
+        profile = await ApiService.getProfile();
+      } catch (_) {
+        // An access token may have expired while a remembered refresh token
+        // remains valid. Refresh once before retrying the profile request.
+        if (!await ApiService.refreshSession()) rethrow;
+        profile = await ApiService.getProfile();
+      }
+      if (!mounted) return;
+      final url = profile['profile_image_url']?.toString().trim();
+      final name = (profile['full_name'] ?? profile['name'])?.toString().trim();
+      final email = profile['email']?.toString().trim();
+      setState(() {
+        _profileImageUrl = (url == null || url.isEmpty) ? null : url;
+        if (name != null && name.isNotEmpty) {
+          _adminName = name;
+          _adminInitial = name[0].toUpperCase();
+        }
+        if (email != null && email.isNotEmpty) _adminEmail = email;
+      });
+      _profileRevision.value++;
+    } catch (error) {
+      debugPrint('Could not load admin profile: $error');
+    }
+  }
+
+  ImageProvider<Object>? get _adminAvatarImage {
+    final url = _profileImageUrl;
+    return url == null || url.isEmpty ? null : NetworkImage(url);
+  }
+
   @override
   void dispose() {
     _tabController.removeListener(_handleTabSelection);
     _tabController.dispose();
     _searchController.dispose();
+    _profileRevision.dispose();
     super.dispose();
   }
 
@@ -231,9 +257,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     var list = _allEvents;
     
     list = list.where((item) {
-      if (item['timing'] == 'Upcoming' && _isClubInactive(item['organizer'])) {
-        return false;
-      }
+
       return true;
     }).toList();
 
@@ -252,12 +276,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   }
 
   List get _filteredSystemEvents {
-    var list = _allEvents.where((item) => item['status'] == 'APPROVED').toList();
+    var list = _approvedEvents;
     
     list = list.where((item) {
-      if (item['timing'] == 'Upcoming' && _isClubInactive(item['organizer'])) {
-        return false;
-      }
+
       return true;
     }).toList();
 
@@ -276,19 +298,47 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     return list;
   }
 
-  void _updateStatus(Map item, String newStatus) {
-    setState(() {
-      item['status'] = newStatus;
-      _systemNotifications.insert(0, 'Event "${item['title']}" status updated to $newStatus.');
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Event "${item['title']}" status updated to $newStatus.'),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+  Future<void> _updateStatus(Map item, String newStatus) async {
+    final eventId = int.tryParse('${item['event_id'] ?? ''}');
+    if (eventId == null) return;
+    final approve = newStatus == 'APPROVED';
+    final reasonController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(approve ? 'Approve event?' : 'Reject event?'),
+        content: approve
+            ? Text('Publish "${item['title']}" for students?')
+            : TextField(
+                controller: reasonController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Rejection reason (required)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(approve ? 'Approve' : 'Reject')),
+        ],
       ),
     );
+    if (confirmed != true || !mounted) { reasonController.dispose(); return; }
+    final reason = reasonController.text.trim();
+    reasonController.dispose();
+    if (!approve && reason.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please provide a rejection reason.')));
+      return;
+    }
+    try {
+      await ApiService.reviewAdminEvent(eventId, approve: approve, reason: reason);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(approve ? 'Event approved and published.' : 'Event rejected.')));
+      await _loadEventSubmissions();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Review failed: $error')));
+    }
   }
 
   void _showChangeClubStatusDialog(Map club) {
@@ -432,32 +482,37 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   }
 
   Future<void> _pickImage(ImageSource source) async {
+    if (_isUploadingProfileImage) return;
     try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? pickedFile = await picker.pickImage(
+      final pickedFile = await ImagePicker().pickImage(
         source: source,
         maxWidth: 800,
         maxHeight: 800,
         imageQuality: 85,
       );
-
-      if (pickedFile != null) {
-        setState(() {
-          _profileImageFile = File(pickedFile.path);
-          _systemNotifications.insert(0, 'Admin profile photo updated successfully.');
-        });
-        if (mounted) {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile photo updated successfully!'), duration: Duration(seconds: 2)),
-          );
-        }
-      }
-    } catch (e) {
+      if (pickedFile == null || !mounted) return;
+      Navigator.of(context).pop(); // Close the image source sheet.
+      setState(() => _isUploadingProfileImage = true);
+      _profileRevision.value++;
+      final uploadedUrl = await ApiService.uploadProfileImage(pickedFile);
+      if (!mounted) return;
+      setState(() {
+        _profileImageUrl = uploadedUrl;
+        _systemNotifications.insert(0, 'Admin profile photo updated successfully.');
+      });
+      _profileRevision.value++;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile photo saved successfully!')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not save profile photo: $error')),
+      );
+    } finally {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to pick image: $e')),
-        );
+        setState(() => _isUploadingProfileImage = false);
+        _profileRevision.value++;
       }
     }
   }
@@ -806,10 +861,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                 child: CircleAvatar(
                                   radius: 12,
                                   backgroundColor: navy,
-                                  backgroundImage: _profileImageFile != null
-                                      ? FileImage(_profileImageFile!)
-                                      : null,
-                                  child: _profileImageFile == null
+                                  backgroundImage: _adminAvatarImage,
+                                  child: _adminAvatarImage == null
                                       ? Text(
                                           _adminInitial,
                                           style: const TextStyle(
@@ -1044,7 +1097,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       MaterialPageRoute(
         builder: (_) => MediaQuery(
           data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
-          child: Scaffold(
+          child: AnimatedBuilder(
+            animation: _profileRevision,
+            builder: (context, _) => Scaffold(
             backgroundColor: navy,
             appBar: AppBar(
               backgroundColor: navy,
@@ -1052,6 +1107,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               title: const Text('Admin Profile', style: TextStyle(fontSize: 18)),
             ),
             body: SafeArea(child: _buildProfileTab()),
+          ),
           ),
         ),
       ),
@@ -1351,6 +1407,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   // Tab 0: Moderation View
   Widget _buildModerationTab() {
     final submissions = _filteredSubmissions;
+    if (_eventsLoading) return const Center(child: CircularProgressIndicator());
+    if (_eventsError != null) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(_eventsError!, style: const TextStyle(color: Colors.white)),
+      TextButton(onPressed: _loadEventSubmissions, child: const Text('Retry')),
+    ]));
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
@@ -1478,17 +1539,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                 ),
                               ],
                             ),
-                          ] else ...[
-                            SizedBox(
-                              width: double.infinity,
-                              height: 40,
-                              child: OutlinedButton.icon(
-                                onPressed: () => _updateStatus(item, 'PENDING REVIEW'),
-                                icon: const Icon(Icons.edit_outlined, size: 16, color: blue),
-                                label: const Text('Change Decision / Status', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: blue)),
-                                style: OutlinedButton.styleFrom(side: BorderSide(color: blue.withValues(alpha: 0.5), width: 1.5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
-                              ),
-                            ),
                           ],
                         ],
                       ),
@@ -1503,6 +1553,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   // Tab 1: Events Management View
   Widget _buildEventsTab() {
     final events = _filteredSystemEvents;
+    if (_eventsLoading) return const Center(child: CircularProgressIndicator());
+    if (_eventsError != null) return Center(child: Text(_eventsError!, style: const TextStyle(color: Colors.white)));
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
@@ -1690,20 +1742,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 alignment: Alignment.bottomRight,
                 children: [
                   GestureDetector(
-                    onTap: _changeProfilePicture,
+                    onTap: _isUploadingProfileImage ? null : _changeProfilePicture,
                     child: Container(
                       padding: const EdgeInsets.all(2.5),
                       decoration: const BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [purple, blue, cyan])),
                       child: CircleAvatar(
                         radius: 36,
                         backgroundColor: navy,
-                        backgroundImage: _profileImageFile != null ? FileImage(_profileImageFile!) : null,
-                        child: _profileImageFile == null ? Text(_adminInitial, style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)) : null,
+                        backgroundImage: _adminAvatarImage,
+                        child: _adminAvatarImage == null ? Text(_adminInitial, style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)) : null,
                       ),
                     ),
                   ),
                   GestureDetector(
-                    onTap: _changeProfilePicture,
+                    onTap: _isUploadingProfileImage ? null : _changeProfilePicture,
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(color: blue, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
@@ -1712,6 +1764,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   ),
                 ],
               ),
+              if (_isUploadingProfileImage) ...[
+                const SizedBox(height: 10),
+                const LinearProgressIndicator(),
+                const Text("Uploading photo...", style: TextStyle(color: kTextGrey)),
+              ],
               const SizedBox(height: 12),
               Text(_adminName, style: const TextStyle(color: navy, fontSize: 19, fontWeight: FontWeight.bold)),
               Text(_adminEmail, style: const TextStyle(color: kTextGrey, fontSize: 12.5)),
