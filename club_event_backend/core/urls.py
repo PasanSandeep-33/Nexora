@@ -32,7 +32,13 @@ from .president_application_views import (
 
 from .event_creation_views import my_president_clubs, submit_event, pending_events, review_event, my_president_events, president_event_detail
 
+from .rsvp_views import student_rsvps, cancel_student_rsvp, president_participants, president_check_in
+
 urlpatterns = [
+    path("rsvps/", student_rsvps, name="student-rsvps"),
+    path("rsvps/<int:rsvp_id>/", cancel_student_rsvp, name="cancel-rsvp"),
+    path("president/participants/", president_participants, name="president-participants"),
+    path("president/check-in/", president_check_in, name="president-check-in"),
     path("events/", event_list, name="event-list"),
     path("events/create/", submit_event, name="event-create"),
     path("president/clubs/", my_president_clubs, name="president-clubs"),

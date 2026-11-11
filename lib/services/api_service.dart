@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 import '../models/event_model.dart';
 import '../models/club_model.dart';
@@ -462,45 +463,176 @@ static Future<bool> refreshSession() async {
         : 'Could not submit event (${response.statusCode}).');
   }
 
-  // President-only event management; JWT identifies the president on the server.
+  // Events belonging to the authenticated club president.
   static Future<List<Map<String, dynamic>>> getMyPresidentEvents() async {
     final token = await AuthStorage.getToken();
     if (token == null || token.isEmpty) throw Exception('Please log in again.');
-    final response = await http.get(Uri.parse('$baseUrl/api/president/events/'),
-      headers: {'Authorization': 'Bearer $token'}).timeout(const Duration(seconds: 20));
-    if (response.statusCode != 200) throw Exception('Could not load club events (${response.statusCode}): ${response.body}');
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/president/events/'),
+      headers: {'Authorization': 'Bearer $token'},
+    ).timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) {
+      throw Exception('Could not load club events (${response.statusCode}): ${response.body}');
+    }
     final decoded = jsonDecode(response.body);
-    final items = decoded is List ? decoded : (decoded is Map && decoded['results'] is List ? decoded['results'] as List : []);
-    return items.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    final items = decoded is List
+        ? decoded
+        : decoded is Map && decoded['results'] is List
+            ? decoded['results'] as List
+            : decoded is Map && decoded['events'] is List
+                ? decoded['events'] as List
+                : null;
+    if (items == null) throw Exception('Unexpected club events response.');
+    return items.whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item)).toList();
   }
 
+  // Edit an existing event owned by the authenticated club president.
   static Future<void> updatePresidentEvent({
-    required int eventId, required String title, required String category,
-    required String description, required DateTime dateTime,
-    required String location, required int capacity,
+    required int eventId,
+    required String title,
+    required String category,
+    required String description,
+    required DateTime dateTime,
+    required String location,
+    required int capacity,
   }) async {
     final token = await AuthStorage.getToken();
     if (token == null || token.isEmpty) throw Exception('Please log in again.');
-    final response = await http.patch(Uri.parse('$baseUrl/api/president/events/$eventId/'),
-      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
-      body: jsonEncode({'title': title, 'category': category, 'description': description,
-        'event_date': dateTime.toUtc().toIso8601String(), 'location': location, 'capacity': capacity}),
+    final response = await http.patch(
+      Uri.parse('$baseUrl/api/president/events/$eventId/'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'title': title.trim(),
+        'category': category,
+        'description': description.trim(),
+        'event_date': dateTime.toUtc().toIso8601String(),
+        'location': location.trim(),
+        'capacity': capacity,
+      }),
     ).timeout(const Duration(seconds: 25));
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Could not update event (${response.statusCode}): ${response.body}');
-    }
+    if (response.statusCode >= 200 && response.statusCode < 300) return;
+    dynamic data;
+    try { data = jsonDecode(response.body); } catch (_) { data = null; }
+    throw Exception(data is Map
+        ? (data['detail'] ?? data.toString()).toString()
+        : 'Could not update event (${response.statusCode}).');
   }
 
+  // Delete an event owned by the authenticated club president.
   static Future<void> deletePresidentEvent(int eventId) async {
     final token = await AuthStorage.getToken();
     if (token == null || token.isEmpty) throw Exception('Please log in again.');
-    final response = await http.delete(Uri.parse('$baseUrl/api/president/events/$eventId/'),
-      headers: {'Authorization': 'Bearer $token'}).timeout(const Duration(seconds: 25));
-    if (response.statusCode != 204) throw Exception('Could not delete event (${response.statusCode}): ${response.body}');
+    final response = await http.delete(
+      Uri.parse('$baseUrl/api/president/events/$eventId/'),
+      headers: {'Authorization': 'Bearer $token'},
+    ).timeout(const Duration(seconds: 25));
+    if (response.statusCode >= 200 && response.statusCode < 300) return;
+    dynamic data;
+    try { data = jsonDecode(response.body); } catch (_) { data = null; }
+    throw Exception(data is Map
+        ? (data['detail'] ?? data.toString()).toString()
+        : 'Could not delete event (${response.statusCode}).');
+  }
+
+  // Upload via authenticated Django endpoint; Django uploads to Cloudinary
+  // and saves the URL on the current user's database record.
+  static Future<String> uploadProfileImage(XFile image) async {
+    final token = await AuthStorage.getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Please log in again.');
+    }
+    final request = http.MultipartRequest(
+      'POST', Uri.parse('$baseUrl/api/profile/image/'),
+    );
+    request.headers['Authorization'] = 'Bearer $token';
+    request.files.add(http.MultipartFile.fromBytes(
+      'image', await image.readAsBytes(), filename: image.name,
+    ));
+    final streamed = await request.send().timeout(const Duration(seconds: 40));
+    final response = await http.Response.fromStream(streamed);
+    if (response.statusCode != 200) {
+      throw Exception('Upload failed (${response.statusCode}): ${response.body}');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final url = data['profile_image_url']?.toString();
+    if (url == null || url.isEmpty) {
+      throw Exception('Server did not return an image URL.');
+    }
+    return url;
   }
 
   // Logout - Delete locally stored JWT token
   static Future<void> logout() async {
-    await AuthStorage.deleteToken();
+    final refreshToken = await AuthStorage.getRefreshToken();
+    try {
+      if (refreshToken != null && refreshToken.isNotEmpty) {
+        await http.post(
+          Uri.parse('$baseUrl/api/logout/'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'refresh_token': refreshToken}),
+        ).timeout(const Duration(seconds: 10));
+      }
+    } catch (_) {
+      // Clear the local session even if the server is temporarily unavailable.
+    } finally {
+      await AuthStorage.deleteToken();
+    }
   }
+  // Phase 1: authenticated RSVP and attendance API.
+  static Future<http.Response> _phase1Request(String method, String path, [Map<String, dynamic>? body]) async {
+    final token = await AuthStorage.getToken();
+    if (token == null || token.isEmpty) throw Exception('Please log in again.');
+    final uri = Uri.parse('$baseUrl/api/$path');
+    final headers = {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'};
+    late http.Response response;
+    if (method == 'GET') {
+      response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 25));
+    } else if (method == 'POST') {
+      response = await http.post(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(const Duration(seconds: 25));
+    } else if (method == 'DELETE') {
+      response = await http.delete(uri, headers: headers, body: jsonEncode(body ?? {})).timeout(const Duration(seconds: 25));
+    } else { throw ArgumentError('Unsupported HTTP method'); }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      String message = 'Request failed (${response.statusCode})';
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map && decoded['detail'] != null) message = decoded['detail'].toString();
+      } catch (_) {}
+      throw Exception(message);
+    }
+    return response;
+  }
+
+  static Future<List<Map<String, dynamic>>> getMyRsvps() async {
+    final response = await _phase1Request('GET', 'rsvps/');
+    return (jsonDecode(response.body) as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  static Future<Map<String, dynamic>> registerRsvp(int eventId) async {
+    final response = await _phase1Request('POST', 'rsvps/', {'event_id': eventId});
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
+  static Future<void> cancelRsvp(int rsvpId) async {
+    await _phase1Request('DELETE', 'rsvps/$rsvpId/');
+  }
+
+  static Future<List<Map<String, dynamic>>> getPresidentParticipants({int? eventId}) async {
+    final query = eventId == null ? '' : '?event_id=$eventId';
+    final response = await _phase1Request('GET', 'president/participants/$query');
+    return (jsonDecode(response.body) as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  static Future<void> checkInTicket(String qrCode) async {
+    await _phase1Request('POST', 'president/check-in/', {'qr_code': qrCode});
+  }
+
+  static Future<void> undoTicketCheckIn(String qrCode) async {
+    await _phase1Request('DELETE', 'president/check-in/', {'qr_code': qrCode});
+  }
+
 }

@@ -59,6 +59,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
 
   // In-Memory Frontend Mock Data (100% Backend-Free)
   late List<Event> _events;
+  bool _isLoadingEvents = false;
   late List<Club> _clubs;
   late List<RsvpItem> _myRsvps;
   final Set<int> _checkedInRsvpIds = {};
@@ -75,30 +76,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
     _profileImageUrl = widget.user?['profile_image_url']?.toString();
     _loadProfileImage();
 
-    _events = [
-      Event(
-        eventId: 101,
-        title: 'Nexora Annual Hackathon 2026',
-        description: 'A 24-hour university coding sprint where student teams build innovative AI and campus software solutions.',
-        category: 'Technology',
-        eventDate: DateTime.now().add(const Duration(days: 3, hours: 4)),
-        location: 'Innovation Center',
-        capacity: 100,
-        rsvpCount: 88,
-        clubName: 'IEEE Computer Society',
-      ),
-      Event(
-        eventId: 102,
-        title: 'windaneeya Handawa',
-        description: 'Live acoustic music, drama performances, under the campus amphitheatre lights.',
-        category: 'Cultural',
-        eventDate: DateTime.now().add(const Duration(days: 6, hours: 8)),
-        location: 'Prof.J.W.Dayananda Somasundara Audiitorium',
-        capacity: 200,
-        rsvpCount: 140,
-        clubName: 'Art Sub Committee',
-      ),
-    ];
+    // Events are fetched from the Django API; never show sample events.
+    _events = [];
+    _loadEvents();
 
     _clubs = [
       Club(
@@ -115,6 +95,33 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
     // A student starts with no passes. RSVPs are added only after the student
     // explicitly confirms one from the Explore tab.
     _myRsvps = [];
+  }
+
+  Future<void> _loadEvents() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingEvents = true;
+    });
+    try {
+      final fetchedEvents = await ApiService.getEvents();
+      if (!mounted) return;
+      fetchedEvents.sort((a, b) => a.eventDate.compareTo(b.eventDate));
+      setState(() => _events = fetchedEvents);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _events = [];
+      });
+      debugPrint('Unable to load published events: $error');
+      _showFloatingSnackBar(
+        message: 'Could not load events. Pull down to retry.',
+        backgroundColor: Colors.redAccent,
+        textColor: Colors.white,
+        icon: Icons.error_outline,
+      );
+    } finally {
+      if (mounted) setState(() => _isLoadingEvents = false);
+    }
   }
 
   @override
@@ -288,54 +295,39 @@ String get _userEmail {
     );
   }
 
-  // Frontend RSVP Toggle
-  void _handleRsvp(Event event) {
-    if (_isRsvpd(event.eventId)) {
-      final r = _myRsvps.firstWhere(
-        (item) => item.event.eventId == event.eventId,
-      );
-      _showQrTicketModal(r);
-      return;
-    }
-
-    if (event.isFull) {
-      _showFloatingSnackBar(
-        message: 'This event has reached maximum capacity.',
-        backgroundColor: Colors.redAccent,
-        textColor: Colors.white,
-        icon: Icons.error_outline,
-      );
-      return;
-    }
-
-    final newRsvp = RsvpItem(
-      rsvpId: DateTime.now().millisecondsSinceEpoch % 10000,
-      status: 'confirmed',
-      registeredAt: DateTime.now(),
-      event: event,
-      ticket: Ticket(
-        ticketId: 200 + event.eventId,
-        qrCode: 'NEXORA-PASS-${event.eventId}-AC88',
-        issuedAt: DateTime.now(),
-      ),
-    );
-
+  // Phase 1: RSVP is persisted in PostgreSQL, not generated locally.
+  Future<void> _refreshMyRsvps() async {
+    final rows = await ApiService.getMyRsvps();
+    if (!mounted) return;
     setState(() {
-      event.rsvpCount += 1;
-      _myRsvps.insert(0, newRsvp);
+      _myRsvps = rows.map((row) => RsvpItem.fromJson(row)).toList();
     });
+  }
 
-    _showFloatingSnackBar(
-      message: 'RSVP confirmed for ${event.title}!',
-      backgroundColor: const Color(0xFF10B981),
-      textColor: Colors.white,
-      icon: Icons.check_circle_rounded,
-      action: SnackBarAction(
-        label: 'View Pass',
+  Future<void> _handleRsvp(Event event) async {
+    if (_isRsvpd(event.eventId)) {
+      final existing = _myRsvps.firstWhere((r) => r.event.eventId == event.eventId);
+      _showQrTicketModal(existing);
+      return;
+    }
+    try {
+      final data = await ApiService.registerRsvp(event.eventId);
+      final newRsvp = RsvpItem.fromJson(data);
+      await _refreshMyRsvps();
+      if (!mounted) return;
+      _showFloatingSnackBar(
+        message: 'RSVP confirmed for ${event.title}!',
+        backgroundColor: const Color(0xFF10B981),
         textColor: Colors.white,
-        onPressed: () => _showQrTicketModal(newRsvp),
-      ),
-    );
+        icon: Icons.check_circle_rounded,
+        action: SnackBarAction(label: 'View Pass', textColor: Colors.white,
+          onPressed: () => _showQrTicketModal(newRsvp)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _showFloatingSnackBar(message: '$e', backgroundColor: Colors.redAccent,
+        textColor: Colors.white, icon: Icons.error_outline);
+    }
   }
 
   // Frontend Cancel RSVP
@@ -381,11 +373,16 @@ String get _userEmail {
 
     if (confirmed != true) return;
 
-    setState(() {
-      rsvp.event.rsvpCount = (rsvp.event.rsvpCount - 1).clamp(0, 9999);
-      _myRsvps.removeWhere((r) => r.rsvpId == rsvp.rsvpId);
-    });
-
+    try {
+      await ApiService.cancelRsvp(rsvp.rsvpId);
+      await _refreshMyRsvps();
+    } catch (e) {
+      if (!mounted) return;
+      _showFloatingSnackBar(message: '$e', backgroundColor: Colors.redAccent,
+        textColor: Colors.white, icon: Icons.error_outline);
+      return;
+    }
+    if (!mounted) return;
     _showFloatingSnackBar(
       message: 'RSVP cancelled. Spot released.',
       backgroundColor: Colors.orangeAccent.shade700,
@@ -918,7 +915,7 @@ Future<void> _pickProfileImage(ImageSource source) async {
       builder: (ctx) {
         final ticket = rsvp.ticket;
         final qrString =
-            ticket?.qrCode ?? 'NEXORA-PASS-${rsvp.event.eventId}-AC88';
+            ticket?.qrCode ?? '';
         final isCheckedIn =
             (ticket?.isCheckedIn ?? false) ||
             _checkedInRsvpIds.contains(rsvp.rsvpId);
@@ -1225,14 +1222,14 @@ Future<void> _pickProfileImage(ImageSource source) async {
                   ExploreTab(
                     userName: _userName,
                     events: _filteredEvents,
-                    isLoading: false,
+                    isLoading: _isLoadingEvents,
                     selectedCategory: _selectedCategory,
                     categories: _categories,
                     onCategorySelected: (cat) {
                       setState(() => _selectedCategory = cat);
                     },
                     onRsvp: _handleRsvp,
-                    onRefresh: () async {},
+                    onRefresh: _loadEvents,
                     isRsvpd: _isRsvpd,
                   ),
 
