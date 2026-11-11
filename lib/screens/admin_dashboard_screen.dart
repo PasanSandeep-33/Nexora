@@ -119,49 +119,75 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     }
   }
 
-  // Campus clubs list
-  final List _campusClubs = [
-    {
-      'name': 'IEEE Computer Society',
-      'category': 'Technology',
-      'members': '342 members',
-      'status': 'Active',
-      'initials': 'CS',
-      'color': Colors.indigo,
-    },
-    {
-      'name': 'Data Science Society',
-      'category': 'Technology',
-      'members': '210 members',
-      'status': 'Active',
-      'initials': 'DS',
-      'color': Colors.teal,
-    },
-    {
-      'name': 'Arts & Drama Circle',
-      'category': 'Cultural',
-      'members': '175 members',
-      'status': 'Pending Renewal',
-      'initials': 'AD',
-      'color': Colors.purple,
-    },
-    {
-      'name': 'Robotics Club',
-      'category': 'Engineering',
-      'members': '120 members',
-      'status': 'Active',
-      'initials': 'RC',
-      'color': Colors.blueAccent,
-    },
-    {
-      'name': 'Photography Society',
-      'category': 'Media',
-      'members': '95 members',
-      'status': 'Inactive',
-      'initials': 'PS',
-      'color': Colors.orange,
-    },
-  ];
+  // Live club records returned by /api/clubs/ (no hardcoded examples).
+  List<Map<String, dynamic>> _campusClubs = [];
+  int? _studentCount;
+  String? _studentCountError;
+  bool _clubsLoading = false;
+  String? _clubsError;
+
+  Future<void> _loadCampusClubs() async {
+    if (!mounted) return;
+    setState(() {
+      _clubsLoading = true;
+      _clubsError = null;
+    });
+    try {
+      final records = await ApiService.getClubs();
+      if (!mounted) return;
+      setState(() {
+        _campusClubs = records.map((club) {
+          final name = club.clubName.trim();
+          final words = name.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+          final initials = words.isEmpty ? 'C' : words.take(2).map((w) => w[0].toUpperCase()).join();
+          const palette = [Colors.indigo, Colors.teal, Colors.purple, Colors.blueAccent, Colors.orange];
+          return <String, dynamic>{
+            'club_id': club.clubId,
+            'name': name,
+            'category': club.category,
+            'description': club.description,
+            'president': club.presidentName,
+            'members': '${club.memberCount} members',
+            // The database currently has no club status column.
+            'status': 'Registered',
+            'initials': initials,
+            'color': palette[club.clubId.abs() % palette.length],
+          };
+        }).toList();
+        _clubsLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _clubsError = error.toString().replaceFirst('Exception: ', '');
+        _clubsLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadStudentCount() async {
+    try {
+      final count = await ApiService.getAdminStudentCount();
+      if (!mounted) return;
+      setState(() {
+        _studentCount = count;
+        _studentCountError = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _studentCountError = error.toString();
+      });
+    }
+  }
+
+  Future<void> _refreshAdminOverview() async {
+    await Future.wait([
+      _loadEventSubmissions(),
+      _loadCampusClubs(),
+      _loadStudentCount(),
+    ]);
+  }
 
   @override
   void initState() {
@@ -171,7 +197,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     _loadSavedAdminProfile();
     _loadRemoteAdminProfile();
     _loadPresidentApplications();
-    _loadEventSubmissions(); 
+    _loadEventSubmissions();
+    _loadCampusClubs();
+    _loadStudentCount();
   }
 
   void _handleTabSelection() {
@@ -246,14 +274,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     super.dispose();
   }
 
-  bool _isClubInactive(String organizerName) {
-    final club = _campusClubs.firstWhere(
-      (c) => c['name'] == organizerName,
-      orElse: () => {'status': 'Active'},
-    );
-    return club['status'] == 'Inactive';
-  }
-
   List get _filteredSubmissions {
     var list = _allEvents;
     
@@ -290,11 +310,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     return list;
   }
 
-  List get _filteredClubs {
+  List<Map<String, dynamic>> get _filteredClubs {
     var list = _campusClubs;
     if (_selectedClubFilter != 'All') {
-      String filterVal = _selectedClubFilter == 'Renewal' ? 'Pending Renewal' : _selectedClubFilter;
-      list = list.where((club) => club['status'] == filterVal).toList();
+      list = list.where((club) => club['status'] == _selectedClubFilter).toList();
+    }
+    if (_searchQuery.trim().isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      list = list.where((club) =>
+        (club['name'] as String).toLowerCase().contains(query) ||
+        (club['category'] as String).toLowerCase().contains(query) ||
+        (club['president'] as String).toLowerCase().contains(query)).toList();
     }
     return list;
   }
@@ -340,48 +366,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Review failed: $error')));
     }
-  }
-
-  void _showChangeClubStatusDialog(Map club) {
-    String currentStatus = club['status'];
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Update Status: ${club['name']}', style: const TextStyle(color: navy, fontWeight: FontWeight.bold, fontSize: 16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: ['Active', 'Pending Renewal', 'Inactive'].map((status) {
-            return RadioListTile<String>(
-              title: Text(status, style: const TextStyle(fontSize: 13, color: navy, fontWeight: FontWeight.w600)),
-              value: status,
-              groupValue: currentStatus,
-              activeColor: blue,
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() {
-                    club['status'] = val;
-                    if (val == 'Inactive') {
-                      _systemNotifications.insert(0, 'Club "${club['name']}" set to Inactive. Upcoming events hidden.');
-                    } else {
-                      _systemNotifications.insert(0, 'Club "${club['name']}" status changed to $val.');
-                    }
-                  });
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Club status updated to $val successfully.')),
-                  );
-                }
-              },
-            );
-          }).toList(),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close', style: TextStyle(color: kTextGrey))),
-        ],
-      ),
-    );
   }
 
   void _showBroadcastDialog() {
@@ -439,43 +423,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               }
             },
             child: const Text('Broadcast', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _confirmDeleteClub(Map club) {
-    final String clubName = club['name'];
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delete Club & Events', style: TextStyle(color: navy, fontWeight: FontWeight.bold)),
-        content: Text(
-          'Are you sure you want to remove "$clubName"? This will also remove all associated events organized by this club.',
-          style: const TextStyle(color: kTextGrey, fontSize: 13.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context), 
-            child: const Text('Cancel', style: TextStyle(color: kTextGrey)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
-            onPressed: () {
-              setState(() {
-                _campusClubs.remove(club);
-                _allEvents.removeWhere((event) => event['organizer'] == clubName);
-                _systemNotifications.insert(0, 'Club "$clubName" and its events were deleted.');
-              });
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Club "$clubName" and its events deleted successfully.')),
-              );
-            },
-            child: const Text('Delete All', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -901,7 +848,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                         fontWeight: FontWeight.w600,
                       ),
                       decoration: InputDecoration(
-                        hintText: 'Search submissions or organizers...',
+                        hintText: 'Search events, clubs, or presidents...',
                         hintStyle: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: 12,
@@ -1278,24 +1225,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       return const Center(child: CircularProgressIndicator(color: cyan));
     }
     if (_presidentApplicationsError != null) {
-      return Center(
-        child: Padding(
+      return RefreshIndicator(
+        onRefresh: _loadPresidentApplications,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, color: Colors.orange, size: 36),
-              const SizedBox(height: 10),
-              Text(_presidentApplicationsError!, textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70)),
-              const SizedBox(height: 12),
-              ElevatedButton.icon(
-                onPressed: _loadPresidentApplications,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
-              ),
-            ],
-          ),
+          children: [
+            const SizedBox(height: 70),
+            const Icon(Icons.error_outline, color: Colors.orange, size: 36),
+            const SizedBox(height: 10),
+            Text(_presidentApplicationsError!, textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70)),
+            const SizedBox(height: 12),
+            const Text('Pull down to try again.', textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70)),
+          ],
         ),
       );
     }
@@ -1424,13 +1368,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   Widget _buildModerationTab() {
     final submissions = _filteredSubmissions;
     if (_eventsLoading) return const Center(child: CircularProgressIndicator());
-    if (_eventsError != null) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Text(_eventsError!, style: const TextStyle(color: Colors.white)),
-      TextButton(onPressed: _loadEventSubmissions, child: const Text('Retry')),
-    ]));
+    if (_eventsError != null) {
+      return RefreshIndicator(
+        onRefresh: _refreshAdminOverview,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(24),
+          children: [
+            const SizedBox(height: 70),
+            Text(_eventsError!, textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white)),
+            const SizedBox(height: 12),
+            const Text('Pull down to try again.', textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70)),
+          ],
+        ),
+      );
+    }
 
     return RefreshIndicator(
-      onRefresh: _loadEventSubmissions,
+      onRefresh: _refreshAdminOverview,
       child: SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
@@ -1439,7 +1396,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         children: [
           Row(
             children: [
-              _statBox('Students', '1,240', blue),
+              _statBox('Students', _studentCount?.toString() ?? '—', blue),
               const SizedBox(width: 8),
               _statBox('Pending', '${_allEvents.where((e) => e['status'] == 'PENDING REVIEW').length}', Colors.orange),
               const SizedBox(width: 8),
@@ -1469,15 +1426,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             ),
           ),
           const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: _loadEventSubmissions,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Refresh submissions'),
-            ),
-          ),
-          const SizedBox(height: 16),
           submissions.isEmpty
               ? const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 32.0), child: Text('No submissions found.', style: TextStyle(color: Colors.white70, fontSize: 13))))
               : ListView.separated(
@@ -1602,10 +1550,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   // Tab 1: Events Management View
   Widget _buildEventsTab() {
     final events = _filteredSystemEvents;
-    if (_eventsLoading) return const Center(child: CircularProgressIndicator());
-    if (_eventsError != null) return Center(child: Text(_eventsError!, style: const TextStyle(color: Colors.white)));
+    if (_eventsLoading && _approvedEvents.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_eventsError != null && _approvedEvents.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _refreshAdminOverview,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(_eventsError!, style: const TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+    }
 
-    return SingleChildScrollView(
+    return RefreshIndicator(
+      onRefresh: _refreshAdminOverview,
+      child: SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1677,14 +1643,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 ),
         ],
       ),
+      ),
     );
   }
 
-  // Tab 2: Clubs View with Manual Status Override and Event Auto-Hiding
+  // Tab 2: Live registered clubs from the backend
   Widget _buildClubsTab() {
     final clubs = _filteredClubs;
 
-    return SingleChildScrollView(
+    if (_clubsLoading && _campusClubs.isEmpty) {
+      return const Center(child: CircularProgressIndicator(color: cyan));
+    }
+    return RefreshIndicator(
+      onRefresh: _loadCampusClubs,
+      child: SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1701,9 +1674,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             ),
           ),
           const SizedBox(height: 16),
-          clubs.isEmpty
-              ? const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 32.0), child: Text('No clubs found for this filter status.', style: TextStyle(color: Colors.white70, fontSize: 13))))
-              : ListView.separated(
+          if (_clubsError != null) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Text('Unable to load clubs: $_clubsError\nPull down to retry.',
+                textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
+            ),
+          ] else if (clubs.isEmpty)
+              const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 32.0), child: Text('No registered clubs found.', style: TextStyle(color: Colors.white70, fontSize: 13))))
+          else ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: clubs.length,
@@ -1737,35 +1716,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(club['category'], style: const TextStyle(color: purple, fontSize: 12, fontWeight: FontWeight.bold)),
-                                    InkWell(
-                                      onTap: () => _showChangeClubStatusDialog(club),
-                                      child: Container(
+                                    Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(color: statusBgColor, borderRadius: BorderRadius.circular(6)),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Text(status, style: TextStyle(color: statusTextColor, fontSize: 12, fontWeight: FontWeight.bold)),
-                                            const SizedBox(width: 3),
-                                            Icon(Icons.edit, size: 10, color: statusTextColor),
+
                                           ],
                                         ),
                                       ),
-                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 4),
                                 Text(club['name'], style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: navy)),
                                 const SizedBox(height: 2),
                                 Text(club['members'], style: const TextStyle(fontSize: 12, color: kTextGrey, fontWeight: FontWeight.w500)),
+                                const SizedBox(height: 2),
+                                Text('President: ${club['president']}', style: const TextStyle(fontSize: 11, color: kTextGrey)),
                               ],
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 22),
-                            tooltip: 'Delete Club',
-                            onPressed: () => _confirmDeleteClub(club),
                           ),
                         ],
                       ),
@@ -1773,6 +1744,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   },
                 ),
         ],
+      ),
       ),
     );
   }
