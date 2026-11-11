@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../login_screen.dart';
 import '../services/api_service.dart';
@@ -33,6 +34,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
   final TextEditingController _searchController = TextEditingController();
   bool _isSearchVisible = false;
   Timer? _presidentStatusTimer;
+  Timer? _snackBarDismissTimer;
   bool _checkingPresidentStatus = false;
   bool _approvalDialogOpen = false;
   bool _approvalConfirmed = false;
@@ -62,7 +64,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
   bool _isLoadingEvents = false;
   late List<Club> _clubs;
   late List<RsvpItem> _myRsvps;
-  final Set<int> _checkedInRsvpIds = {};
 
   @override
   void initState() {
@@ -79,6 +80,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
     // Events are fetched from the Django API; never show sample events.
     _events = [];
     _loadEvents();
+    _refreshMyRsvps();
 
     _clubs = [
       Club(
@@ -127,6 +129,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen>
   @override
   void dispose() {
     _presidentStatusTimer?.cancel();
+    _snackBarDismissTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     _searchController.dispose();
@@ -251,7 +254,7 @@ String get _userEmail {
   Map<String, dynamic> get _stats => {
     'total_rsvps': _myRsvps.length,
     'upcoming_events': _myRsvps.length,
-    'attended_events': _checkedInRsvpIds.length,
+    'attended_events': _myRsvps.where((r) => r.ticket?.isCheckedIn == true).length,
     'clubs_joined': _clubs.where((c) => c.isJoined).length,
   };
 
@@ -259,6 +262,7 @@ String get _userEmail {
     return _myRsvps.any((r) => r.event.eventId == eventId);
   }
 
+  // Keep notifications short even when an action or accessibility mode is active.
   void _showFloatingSnackBar({
     required String message,
     Color backgroundColor = Colors.white,
@@ -266,8 +270,11 @@ String get _userEmail {
     IconData icon = Icons.info_outline,
     SnackBarAction? action,
   }) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
+    if (!mounted) return;
+    _snackBarDismissTimer?.cancel();
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.removeCurrentSnackBar();
+    messenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [
@@ -293,6 +300,21 @@ String get _userEmail {
         action: action,
       ),
     );
+    _snackBarDismissTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) messenger.hideCurrentSnackBar();
+    });
+  }
+
+  // Present API errors as readable messages rather than Dart exception strings.
+  String _friendlyError(Object error) {
+    var message = error.toString().trim();
+    message = message.replaceFirst(RegExp(r'^Exception:\s*', caseSensitive: false), '');
+    message = message.replaceFirst(RegExp(r'^Error:\s*', caseSensitive: false), '');
+    if (message.toLowerCase().contains('cannot cancel after check-in') ||
+        message.toLowerCase().contains('cannot cancel after check in')) {
+      return 'This RSVP cannot be cancelled after check-in.';
+    }
+    return message.isEmpty ? 'Something went wrong. Please try again.' : message;
   }
 
   // Phase 1: RSVP is persisted in PostgreSQL, not generated locally.
@@ -325,13 +347,22 @@ String get _userEmail {
       );
     } catch (e) {
       if (!mounted) return;
-      _showFloatingSnackBar(message: '$e', backgroundColor: Colors.redAccent,
+      _showFloatingSnackBar(message: _friendlyError(e), backgroundColor: Colors.redAccent,
         textColor: Colors.white, icon: Icons.error_outline);
     }
   }
 
   // Frontend Cancel RSVP
   Future<void> _handleCancelRsvp(RsvpItem rsvp) async {
+    if (rsvp.ticket?.isCheckedIn == true) {
+      _showFloatingSnackBar(
+        message: 'This RSVP cannot be cancelled after check-in.',
+        backgroundColor: Colors.redAccent,
+        textColor: Colors.white,
+        icon: Icons.info_outline,
+      );
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -378,7 +409,7 @@ String get _userEmail {
       await _refreshMyRsvps();
     } catch (e) {
       if (!mounted) return;
-      _showFloatingSnackBar(message: '$e', backgroundColor: Colors.redAccent,
+      _showFloatingSnackBar(message: _friendlyError(e), backgroundColor: Colors.redAccent,
         textColor: Colors.white, icon: Icons.error_outline);
       return;
     }
@@ -916,9 +947,7 @@ Future<void> _pickProfileImage(ImageSource source) async {
         final ticket = rsvp.ticket;
         final qrString =
             ticket?.qrCode ?? '';
-        final isCheckedIn =
-            (ticket?.isCheckedIn ?? false) ||
-            _checkedInRsvpIds.contains(rsvp.rsvpId);
+        final isCheckedIn = ticket?.isCheckedIn ?? false;
         final screenWidth = MediaQuery.of(ctx).size.width;
         final qrSize = (screenWidth * 0.44).clamp(140.0, 190.0);
 
@@ -1045,13 +1074,31 @@ Future<void> _pickProfileImage(ImageSource source) async {
                     ),
                     child: Column(
                       children: [
-                        CustomPaint(
-                          size: Size(qrSize, qrSize),
-                          painter: _QrCodePainter(qrString),
-                        ),
+                        if (qrString.isNotEmpty)
+                          QrImageView(
+                            data: qrString,
+                            version: QrVersions.auto,
+                            size: qrSize,
+                            backgroundColor: Colors.white,
+                            errorCorrectionLevel: QrErrorCorrectLevel.M,
+                            padding: const EdgeInsets.all(8),
+                          )
+                        else
+                          SizedBox(
+                            width: qrSize,
+                            height: qrSize,
+                            child: const Center(
+                              child: Text(
+                                'Ticket QR is unavailable. Refresh My Passes.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.redAccent),
+                              ),
+                            ),
+                          ),
                         const SizedBox(height: 8),
-                        Text(
-                          qrString,
+                        SelectableText(
+                          qrString.isNotEmpty ? qrString : 'No ticket code',
+                          textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: navy,
                             fontSize: 11,
@@ -1091,47 +1138,9 @@ Future<void> _pickProfileImage(ImageSource source) async {
                       Expanded(
                         child: SizedBox(
                           height: 48,
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(ctx);
-                              setState(() {
-                                _checkedInRsvpIds.add(rsvp.rsvpId);
-                              });
-                              _showFloatingSnackBar(
-                                message:
-                                    'Entrance scan verified! Pass checked in.',
-                                backgroundColor: const Color(0xFF10B981),
-                                textColor: Colors.white,
-                                icon: Icons.verified_rounded,
-                              );
-                            },
-                            icon: const Icon(Icons.qr_code_scanner, size: 18),
-                            label: const FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                'Simulate Scan',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: cyan,
-                              side: const BorderSide(color: cyan, width: 1.5),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: SizedBox(
-                          height: 48,
                           child: ElevatedButton.icon(
                             onPressed: () {
+                              if (qrString.isEmpty) return;
                               Clipboard.setData(ClipboardData(text: qrString));
                               _showFloatingSnackBar(
                                 message: 'Ticket code copied to clipboard!',
@@ -1236,7 +1245,7 @@ Future<void> _pickProfileImage(ImageSource source) async {
                   // Tab 2: My Passes & QR
                   MyPassesTab(
                     rsvps: _myRsvps,
-                    onRefresh: () async {},
+                    onRefresh: _refreshMyRsvps,
                     onCancelRsvp: _handleCancelRsvp,
                     onShowQrModal: _showQrTicketModal,
                   ),
@@ -1703,65 +1712,3 @@ Future<void> _pickProfileImage(ImageSource source) async {
   }
 }
 
-// Custom painter for realistic QR Code simulation
-class _QrCodePainter extends CustomPainter {
-  final String data;
-  _QrCodePainter(this.data);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF050B25)
-      ..style = PaintingStyle.fill;
-
-    final double cellSize = size.width / 21;
-
-    void drawFinder(double x, double y) {
-      canvas.drawRect(
-        Rect.fromLTWH(x * cellSize, y * cellSize, 7 * cellSize, 7 * cellSize),
-        paint,
-      );
-      final whitePaint = Paint()..color = Colors.white;
-      canvas.drawRect(
-        Rect.fromLTWH(
-          (x + 1) * cellSize,
-          (y + 1) * cellSize,
-          5 * cellSize,
-          5 * cellSize,
-        ),
-        whitePaint,
-      );
-      canvas.drawRect(
-        Rect.fromLTWH(
-          (x + 2) * cellSize,
-          (y + 2) * cellSize,
-          3 * cellSize,
-          3 * cellSize,
-        ),
-        paint,
-      );
-    }
-
-    drawFinder(0, 0);
-    drawFinder(14, 0);
-    drawFinder(0, 14);
-
-    final int hash = data.hashCode.abs();
-    for (int r = 0; r < 21; r++) {
-      for (int c = 0; c < 21; c++) {
-        if ((r < 8 && c < 8) || (r < 8 && c > 12) || (r > 12 && c < 8)) {
-          continue;
-        }
-        if (((r * 31 + c * 17 + hash) % 3) == 0) {
-          canvas.drawRect(
-            Rect.fromLTWH(c * cellSize, r * cellSize, cellSize, cellSize),
-            paint,
-          );
-        }
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}

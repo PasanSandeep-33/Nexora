@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../login_screen.dart';
+import 'president_qr_scanner_screen.dart';
 
 class PresidentDashboard extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -65,41 +66,79 @@ class _PresidentDashboardState extends State<PresidentDashboard>
     }).length;
   }
 
-  // 2. Registered Participants List (Scan Removed - Only Check In / Undo)
-  final List<Map<String, dynamic>> participants = [
-    {
-      "name": "Alex Chen",
-      "studentId": "NXR-2026-CS88",
-      "email": "alex.chen@campus.nexora.edu",
-      "eventTitle": "Nexora Annual Hackathon 2026",
-      "ticket": "NEXORA-TKT-101-AC88",
-      "checkedIn": true,
-    },
-    {
-      "name": "Chaduni De Silva",
-      "studentId": "NXR-2026-CS12",
-      "email": "chaduni.d@campus.nexora.edu",
-      "eventTitle": "Nexora Annual Hackathon 2026",
-      "ticket": "NEXORA-TKT-101-CD12",
-      "checkedIn": true,
-    },
-    {
-      "name": "Kavindu Perera",
-      "studentId": "NXR-2026-SE45",
-      "email": "kavindu.p@campus.nexora.edu",
-      "eventTitle": "Nexora Annual Hackathon 2026",
-      "ticket": "NEXORA-TKT-101-KP45",
-      "checkedIn": false,
-    },
-    {
-      "name": "Amaya Wijesinghe",
-      "studentId": "NXR-2026-DS19",
-      "email": "amaya.w@campus.nexora.edu",
-      "eventTitle": "Windaneeya Handawa",
-      "ticket": "NEXORA-TKT-102-AW19",
-      "checkedIn": false,
-    },
-  ];
+  // Live RSVP participants from Django / Neon.
+  final List<Map<String, dynamic>> participants = [];
+  bool _loadingParticipants = false;
+  String? _participantsError;
+
+  Future<void> _loadParticipants() async {
+    if (!mounted) return;
+    setState(() { _loadingParticipants = true; _participantsError = null; });
+    try {
+      final rows = await ApiService.getPresidentParticipants();
+      if (!mounted) return;
+      setState(() {
+        participants
+          ..clear()
+          ..addAll(rows.map((row) {
+            final student = row['student'] is Map
+                ? Map<String, dynamic>.from(row['student'] as Map)
+                : <String, dynamic>{};
+            final event = row['event'] is Map
+                ? Map<String, dynamic>.from(row['event'] as Map)
+                : <String, dynamic>{};
+            final ticket = row['ticket'] is Map
+                ? Map<String, dynamic>.from(row['ticket'] as Map)
+                : <String, dynamic>{};
+            return <String, dynamic>{
+              'name': '${student['full_name'] ?? 'Student'}',
+              'studentId': '${student['user_id'] ?? ''}',
+              'email': '${student['email'] ?? ''}',
+              'eventTitle': '${event['title'] ?? 'Event'}',
+              'ticket': '${ticket['qr_code'] ?? ''}',
+              'checkedIn': ticket['is_checked_in'] == true,
+            };
+          }));
+        _loadingParticipants = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() { _loadingParticipants = false; _participantsError = error.toString(); });
+    }
+  }
+
+  Future<void> _openQrScanner() async {
+    final checkedIn = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => PresidentQrScannerScreen(
+        onCheckIn: ApiService.checkInTicket,
+      )),
+    );
+    if (!mounted) return;
+    if (checkedIn == true) await _loadParticipants();
+  }
+
+  Future<void> _changeCheckIn(Map<String, dynamic> participant) async {
+    final qr = '${participant['ticket'] ?? ''}';
+    if (qr.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This participant has no QR ticket.')),
+      );
+      return;
+    }
+    try {
+      if (participant['checkedIn'] == true) {
+        await ApiService.undoTicketCheckIn(qr);
+      } else {
+        await ApiService.checkInTicket(qr);
+      }
+      await _loadParticipants();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    }
+  }
 
   // Event Form Controllers
   final TextEditingController _titleController = TextEditingController();
@@ -126,6 +165,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
     // 3 Separate Tabs: 0 = Events, 1 = Participants, 2 = Profile
     _tabController = TabController(length: 3, vsync: this);
     _loadClubEvents();
+    _loadParticipants();
     _loadProfile();
   }
 
@@ -254,122 +294,6 @@ class _PresidentDashboardState extends State<PresidentDashboard>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
-  }
-
-  // ==================== ADD PARTICIPANT DIALOG ====================
-  void _showAddParticipantDialog() {
-    final TextEditingController nameCtrl = TextEditingController();
-    final TextEditingController idCtrl = TextEditingController();
-    final TextEditingController emailCtrl = TextEditingController();
-    String selectedEvent = clubEvents.isNotEmpty
-        ? clubEvents.first["title"]
-        : "Nexora Annual Hackathon 2026";
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: kWhiteCard,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            "Add Participant",
-            style: TextStyle(color: kBgColor, fontWeight: FontWeight.bold),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  style: const TextStyle(color: kBgColor),
-                  decoration: const InputDecoration(
-                    labelText: "Student Name",
-                    labelStyle: TextStyle(color: kTextGrey),
-                  ),
-                ),
-                TextField(
-                  controller: idCtrl,
-                  style: const TextStyle(color: kBgColor),
-                  decoration: const InputDecoration(
-                    labelText: "Student ID",
-                    labelStyle: TextStyle(color: kTextGrey),
-                  ),
-                ),
-                TextField(
-                  controller: emailCtrl,
-                  style: const TextStyle(color: kBgColor),
-                  decoration: const InputDecoration(
-                    labelText: "Email",
-                    labelStyle: TextStyle(color: kTextGrey),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedEvent,
-                  isExpanded: true,
-                  dropdownColor: kWhiteCard,
-                  style: const TextStyle(color: kBgColor),
-                  items: clubEvents
-                      .map(
-                        (e) => DropdownMenuItem<String>(
-                          value: e["title"],
-                          child: Text(
-                            e["title"],
-                            style: const TextStyle(color: kBgColor),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (val) {
-                    if (val != null) selectedEvent = val;
-                  },
-                  decoration: const InputDecoration(
-                    labelText: "Event",
-                    labelStyle: TextStyle(color: kTextGrey),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel", style: TextStyle(color: kTextGrey)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: kBlue,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                if (nameCtrl.text.isNotEmpty) {
-                  setState(() {
-                    participants.insert(0, {
-                      "name": nameCtrl.text,
-                      "studentId": idCtrl.text.isEmpty
-                          ? "NXR-2026-CS99"
-                          : idCtrl.text,
-                      "email": emailCtrl.text.isEmpty
-                          ? "student@campus.nexora.edu"
-                          : emailCtrl.text,
-                      "eventTitle": selectedEvent,
-                      "ticket":
-                          "NEXORA-TKT-${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}",
-                      "checkedIn": false,
-                    });
-                  });
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text("Add"),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   // ==================== EDIT PRESIDENT PROFILE DIALOG ====================
@@ -1217,9 +1141,9 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                 ),
               ),
               ElevatedButton.icon(
-                onPressed: _showAddParticipantDialog,
-                icon: const Icon(Icons.person_add, size: 16),
-                label: const Text("Add RSVP"),
+                onPressed: _openQrScanner,
+                icon: const Icon(Icons.qr_code_scanner, size: 16),
+                label: const Text("Scan QR"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: kBlue,
                   foregroundColor: Colors.white,
@@ -1348,7 +1272,20 @@ class _PresidentDashboardState extends State<PresidentDashboard>
           ),
           const SizedBox(height: 16),
 
-          // Participants List (White Cards - Scan Button Removed)
+          if (_loadingParticipants)
+            const Center(child: CircularProgressIndicator()),
+          if (_participantsError != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text('Unable to load participants: $_participantsError',
+                style: const TextStyle(color: Colors.redAccent)),
+            ),
+          TextButton.icon(
+            onPressed: _loadingParticipants ? null : _loadParticipants,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Refresh participants'),
+          ),
+          // Participants List (live database records)
           filteredList.isEmpty
               ? const Center(
                   child: Padding(
@@ -1424,11 +1361,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
                           ),
                           // Simple Check In / Undo Button (No Scan Button)
                           ElevatedButton(
-                            onPressed: () {
-                              setState(() {
-                                p["checkedIn"] = !isCheckedIn;
-                              });
-                            },
+                            onPressed: () => _changeCheckIn(p),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: isCheckedIn
                                   ? Colors.grey.shade200

@@ -80,6 +80,7 @@ class MyPassesTab extends StatelessWidget {
   }
 
   Widget _buildPassCard(RsvpItem rsvp) {
+    final isCheckedIn = rsvp.ticket?.isCheckedIn ?? false;
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
@@ -131,8 +132,8 @@ class MyPassesTab extends StatelessWidget {
                         color: const Color(0xFF10B981).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text(
-                        'STATUS: VALID PASS',
+                      child: Text(
+                        isCheckedIn ? 'STATUS: CHECKED IN' : 'STATUS: VALID PASS',
                         style: TextStyle(
                           color: Color(0xFF059669),
                           fontSize: 10.5,
@@ -198,7 +199,9 @@ class MyPassesTab extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          rsvp.ticket?.qrCode ?? 'NEXORA-PASS-${rsvp.rsvpId}',
+                          (rsvp.ticket?.qrCode.isNotEmpty == true)
+                              ? rsvp.ticket!.qrCode
+                              : 'Ticket unavailable',
                           style: const TextStyle(
                             color: navy,
                             fontSize: 11,
@@ -220,22 +223,36 @@ class MyPassesTab extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: TextButton.icon(
-                    onPressed: () => onCancelRsvp(rsvp),
-                    icon: const Icon(
-                      Icons.cancel_outlined,
-                      size: 16,
-                      color: Colors.redAccent,
-                    ),
-                    label: const Text(
-                      'Cancel RSVP',
-                      style: TextStyle(
-                        color: Colors.redAccent,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                  child: isCheckedIn
+                      ? const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.check_circle_rounded,
+                                color: Color(0xFF059669), size: 17),
+                            SizedBox(width: 6),
+                            Text(
+                              'Attended',
+                              style: TextStyle(
+                                color: Color(0xFF059669),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        )
+                      : TextButton.icon(
+                          onPressed: () => onCancelRsvp(rsvp),
+                          icon: const Icon(Icons.cancel_outlined,
+                              size: 16, color: Colors.redAccent),
+                          label: const Text(
+                            'Cancel RSVP',
+                            style: TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
                 ),
                 Container(width: 1, height: 24, color: const Color(0xFFE2E8F0)),
                 Expanded(

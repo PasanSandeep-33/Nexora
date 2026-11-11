@@ -89,6 +89,7 @@ class _AdminMfaScreenState extends State<AdminMfaScreen> {
       error.toString().replaceFirst('Exception: ', '');
 
   Future<void> _verify() async {
+    if (_isLoading || _setupLoading || (widget.setupRequired && _enrollmentToken == null)) return;
     final code = _codeController.text.trim();
 
     if (!_isRecoveryMode && !RegExp(r'^\d{6}$').hasMatch(code)) {
@@ -356,8 +357,11 @@ class _AdminMfaScreenState extends State<AdminMfaScreen> {
                     const SizedBox(height: 18),
                     TextField(
                       controller: _codeController,
-                      keyboardType: TextInputType.number,
-                      maxLength: 6,
+                      autofocus: !isSetup,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _verify(),
+                      keyboardType: _isRecoveryMode ? TextInputType.text : TextInputType.number,
+                      maxLength: _isRecoveryMode ? null : 6,
                       textAlign: TextAlign.center,
                       cursorColor: const Color(0xFF3478FF),
 
