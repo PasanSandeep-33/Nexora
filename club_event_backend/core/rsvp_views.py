@@ -56,7 +56,7 @@ def student_rsvps(request):
     if request.method == 'GET':
         rows = Rsvps.objects.filter(
             user_id=request.user.user_id,
-            status='confirmed'
+            status='registered'
         ).select_related('event').order_by('-registered_at')
 
         return Response([_serialize(row) for row in rows])
@@ -94,22 +94,22 @@ def student_rsvps(request):
                 user_id=request.user.user_id
             ).first()
 
-            if existing and existing.status == 'confirmed':
+            if existing and existing.status == 'registered':
                 return Response(_serialize(existing), status=200)
 
-            confirmed = Rsvps.objects.filter(
+            registered_count = Rsvps.objects.filter(
                 event=event,
-                status='confirmed'
+                status='registered'
             ).count()
 
-            if confirmed >= event.capacity:
+            if registered_count >= event.capacity:
                 return Response(
                     {'detail': 'Event is full.'},
                     status=409
                 )
 
             if existing:
-                existing.status = 'confirmed'
+                existing.status = 'registered'
                 existing.registered_at = timezone.now()
                 existing.save(
                     update_fields=['status', 'registered_at']
@@ -119,7 +119,7 @@ def student_rsvps(request):
                 rsvp = Rsvps.objects.create(
                     user_id=request.user.user_id,
                     event=event,
-                    status='confirmed',
+                    status='registered',
                     registered_at=timezone.now()
                 )
 
@@ -145,7 +145,7 @@ def student_rsvps(request):
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def cancel_student_rsvp(request, rsvp_id):
-    rsvp = Rsvps.objects.filter(pk=rsvp_id, user_id=request.user.user_id, status='confirmed').first()
+    rsvp = Rsvps.objects.filter(pk=rsvp_id, user_id=request.user.user_id, status='registered').first()
     if not rsvp:
         return Response({'detail': 'RSVP not found.'}, status=404)
     with transaction.atomic():
@@ -169,7 +169,7 @@ def president_participants(request):
             events = events.filter(pk=int(event_id))
         except ValueError:
             return Response({'detail': 'Invalid event_id.'}, status=400)
-    rows = Rsvps.objects.filter(event__in=events, status='confirmed').select_related('user', 'event').order_by('-registered_at')
+    rows = Rsvps.objects.filter(event__in=events, status='registered').select_related('user', 'event').order_by('-registered_at')
     output = []
     for rsvp in rows:
         item = _serialize(rsvp)
@@ -190,7 +190,7 @@ def president_check_in(request):
     with transaction.atomic():
         ticket = Tickets.objects.select_for_update().select_related('rsvp__event').filter(
             qr_code=qr_code, rsvp__event__club__in=_owned_clubs(request.user),
-            rsvp__status='confirmed').first()
+            rsvp__status='registered').first()
         if not ticket:
             return Response({'detail': 'Ticket not found for your club.'}, status=404)
         attendance = Attendance.objects.filter(ticket=ticket).first()
