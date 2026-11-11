@@ -12,7 +12,9 @@ from rest_framework.response import Response
 
 from .models import Attendance, Clubs, Events, PresidentApplication, Rsvps, Tickets, Users
 from .serializers import EventSerializer
+import logging
 
+logger = logging.getLogger(__name__)
 
 def _owned_clubs(user):
     return Clubs.objects.filter(
@@ -41,41 +43,103 @@ def _serialize(rsvp):
     }
 
 
+
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def student_rsvps(request):
     if str(request.user.role).lower() != 'student':
-        return Response({'detail': 'Student account required.'}, status=403)
+        return Response(
+            {'detail': 'Student account required.'},
+            status=403
+        )
+
     if request.method == 'GET':
-        rows = Rsvps.objects.filter(user_id=request.user.user_id, status='confirmed').select_related('event').order_by('-registered_at')
+        rows = Rsvps.objects.filter(
+            user_id=request.user.user_id,
+            status='confirmed'
+        ).select_related('event').order_by('-registered_at')
+
         return Response([_serialize(row) for row in rows])
+
     try:
         event_id = int(request.data.get('event_id'))
     except (TypeError, ValueError):
-        return Response({'detail': 'Valid event_id is required.'}, status=400)
-    with transaction.atomic():
-        event = Events.objects.select_for_update().filter(pk=event_id, approval_status='approved').first()
-        if event is None:
-            return Response({'detail': 'Published event not found.'}, status=404)
-        if event.event_date <= timezone.now():
-            return Response({'detail': 'Registration has closed.'}, status=400)
-        existing = Rsvps.objects.filter(event=event, user_id=request.user.user_id).first()
-        if existing and existing.status == 'confirmed':
-            return Response(_serialize(existing), status=200)
-        confirmed = Rsvps.objects.filter(event=event, status='confirmed').count()
-        if confirmed >= event.capacity:
-            return Response({'detail': 'Event is full.'}, status=409)
-        if existing:
-            existing.status = 'confirmed'
-            existing.registered_at = timezone.now()
-            existing.save(update_fields=['status', 'registered_at'])
-            rsvp = existing
-        else:
-            rsvp = Rsvps.objects.create(user_id=request.user.user_id, event=event,
-                                       status='confirmed', registered_at=timezone.now())
-        Tickets.objects.get_or_create(rsvp=rsvp, defaults={
-            'qr_code': f'NEXORA-{uuid4().hex}', 'issued_at': timezone.now()})
-        return Response(_serialize(rsvp), status=201)
+        return Response(
+            {'detail': 'Valid event_id is required.'},
+            status=400
+        )
+
+    # Added try/except to capture backend errors
+    try:
+        with transaction.atomic():
+            event = Events.objects.select_for_update().filter(
+                pk=event_id,
+                approval_status='approved'
+            ).first()
+
+            if event is None:
+                return Response(
+                    {'detail': 'Published event not found.'},
+                    status=404
+                )
+
+            if event.event_date <= timezone.now():
+                return Response(
+                    {'detail': 'Registration has closed.'},
+                    status=400
+                )
+
+            existing = Rsvps.objects.filter(
+                event=event,
+                user_id=request.user.user_id
+            ).first()
+
+            if existing and existing.status == 'confirmed':
+                return Response(_serialize(existing), status=200)
+
+            confirmed = Rsvps.objects.filter(
+                event=event,
+                status='confirmed'
+            ).count()
+
+            if confirmed >= event.capacity:
+                return Response(
+                    {'detail': 'Event is full.'},
+                    status=409
+                )
+
+            if existing:
+                existing.status = 'confirmed'
+                existing.registered_at = timezone.now()
+                existing.save(
+                    update_fields=['status', 'registered_at']
+                )
+                rsvp = existing
+            else:
+                rsvp = Rsvps.objects.create(
+                    user_id=request.user.user_id,
+                    event=event,
+                    status='confirmed',
+                    registered_at=timezone.now()
+                )
+
+            Tickets.objects.get_or_create(
+                rsvp=rsvp,
+                defaults={
+                    'qr_code': f'NEXORA-{uuid4().hex}',
+                    'issued_at': timezone.now()
+                }
+            )
+
+            return Response(_serialize(rsvp), status=201)
+
+    except Exception:
+        logger.exception("RSVP creation failed")
+
+        return Response(
+            {'detail': 'Unable to create RSVP.'},
+            status=500
+        )
 
 
 @api_view(['DELETE'])
