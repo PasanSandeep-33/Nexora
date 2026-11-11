@@ -1,8 +1,8 @@
-import 'dart:io';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../login_screen.dart';
 
 class PresidentDashboard extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -44,7 +44,8 @@ class _PresidentDashboardState extends State<PresidentDashboard>
     }
     return fallback;
   }
-  File? profileImage; // Real image file selected from device gallery or camera
+  String? _profileImageUrl;
+  bool _uploadingProfileImage = false;
 
   // 1. Club Events List (CRUD Data)
   final List<Map<String, dynamic>> clubEvents = [];
@@ -104,7 +105,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
   final TextEditingController _venueController = TextEditingController();
-  String _selectedCategory = "TECHNOLOGY";
+  final String _selectedCategory = "TECHNOLOGY";
 
   // Participants Filter State
   String _selectedEventFilter = "All Events";
@@ -125,6 +126,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
     // 3 Separate Tabs: 0 = Events, 1 = Participants, 2 = Profile
     _tabController = TabController(length: 3, vsync: this);
     _loadClubEvents();
+    _loadProfile();
   }
 
   @override
@@ -134,6 +136,46 @@ class _PresidentDashboardState extends State<PresidentDashboard>
     _descController.dispose();
     _venueController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final profile = await ApiService.getProfile();
+      if (!mounted) return;
+      setState(() {
+        _profileImageUrl = profile['profile_image_url']?.toString();
+      });
+    } catch (e) {
+      // Do not prevent dashboard use when profile refresh is unavailable.
+      debugPrint('Unable to refresh profile image: $e');
+    }
+  }
+
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Log out of Nexora?'),
+        content: const Text('You will need to sign in again to access your account.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Log Out', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await ApiService.logout();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (route) => false,
+    );
   }
 
   Future<void> _loadClubEvents() async {
@@ -477,41 +519,34 @@ class _PresidentDashboardState extends State<PresidentDashboard>
     );
   }
 
-  // ==================== SELECT PHOTO FROM GALLERY / CAMERA ====================
+  // ==================== UPLOAD PROFILE PHOTO TO CLOUDINARY VIA DJANGO ====================
   Future<void> _pickImage(ImageSource source) async {
+    if (_uploadingProfileImage) return;
     try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? pickedFile = await picker.pickImage(
+      final pickedFile = await ImagePicker().pickImage(
         source: source,
         maxWidth: 800,
         maxHeight: 800,
         imageQuality: 85,
       );
-
-      if (pickedFile != null) {
-        setState(() {
-          profileImage = File(pickedFile.path);
-        });
-        if (mounted) {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Profile picture updated successfully!"),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      }
+      if (pickedFile == null || !mounted) return;
+      Navigator.of(context).pop(); // Close the picker sheet.
+      setState(() => _uploadingProfileImage = true);
+      final imageUrl = await ApiService.uploadProfileImage(pickedFile);
+      if (!mounted) return;
+      setState(() => _profileImageUrl = imageUrl);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile picture saved successfully.'),
+          backgroundColor: Colors.green),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Failed to pick image: $e"),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not upload profile picture: $e'),
+          backgroundColor: Colors.redAccent),
+      );
+    } finally {
+      if (mounted) setState(() => _uploadingProfileImage = false);
     }
   }
 
@@ -607,36 +642,6 @@ class _PresidentDashboardState extends State<PresidentDashboard>
               ),
               onTap: () => _pickImage(ImageSource.camera),
             ),
-            if (profileImage != null) ...[
-              const Divider(height: 1),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.redAccent.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.delete_outline,
-                    color: Colors.redAccent,
-                  ),
-                ),
-                title: const Text(
-                  "Remove Current Photo",
-                  style: TextStyle(
-                    color: Colors.redAccent,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14.5,
-                  ),
-                ),
-                onTap: () {
-                  setState(() {
-                    profileImage = null;
-                  });
-                  Navigator.pop(ctx);
-                },
-              ),
-            ],
             const SizedBox(height: 12),
           ],
         ),
@@ -820,8 +825,9 @@ class _PresidentDashboardState extends State<PresidentDashboard>
       child: CircleAvatar(
         radius: radius,
         backgroundColor: kBgColor,
-        backgroundImage: profileImage != null ? FileImage(profileImage!) : null,
-        child: profileImage == null
+        backgroundImage: _profileImageUrl != null && _profileImageUrl!.isNotEmpty
+            ? NetworkImage(_profileImageUrl!) : null,
+        child: _profileImageUrl == null || _profileImageUrl!.isEmpty
             ? Text(
                 initial,
                 style: TextStyle(
@@ -1756,9 +1762,7 @@ class _PresidentDashboardState extends State<PresidentDashboard>
           'Privacy & Policies',
           _showPrivacyPolicyModal,
         ),
-        _profileActionTile(Icons.logout_rounded, 'Log Out', () {
-          Navigator.pop(context);
-        }, isDestructive: true),
+        _profileActionTile(Icons.logout_rounded, 'Log Out', _confirmLogout, isDestructive: true),
       ],
     );
   }

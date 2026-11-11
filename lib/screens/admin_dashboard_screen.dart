@@ -951,7 +951,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     const SizedBox(height: 2),
                     const Text(
                       'Review pending approvals, monitor events, and manage system access.',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+                      style: TextStyle(color: Colors.white70, fontSize: 12.5),
                     ),
                   ],
                 ),
